@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Heroes — Soulbook</title>
+  <meta name="description" content="Every Deadlock hero with abilities, upgrades, base stats, lore, class guides and the most popular community build.">
+  <meta name="theme-color" content="#0d1a17">
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main class="wrap" id="main">
+    <div class="loading">Summoning the roster</div>
+  </main>
+
+  <footer id="site-footer"></footer>
+  <script src="js/codex.js"></script>
+  <script>
+    const STAT_LABELS = {
+      max_health: ['Health', ''],
+      base_health_regen: ['Health regen', '/s'],
+      max_move_speed: ['Move speed', ' m/s'],
+      sprint_speed: ['Sprint bonus', ' m/s'],
+      stamina: ['Stamina', ''],
+      light_melee_damage: ['Light melee', ''],
+      heavy_melee_damage: ['Heavy melee', ''],
+      ground_dash_distance_in_meters: ['Dash distance', ' m'],
+    };
+
+    // Class guides. These are written by hand, so edit freely.
+    const CLASSES = {
+      assassin: {
+        one: 'Find a target alone, delete it, get out',
+        short: 'High burst damage and mobility, usually fragile. Wins by picking off isolated enemies.',
+        job: 'Assassins hunt. They roam between lanes, pounce on anyone who is alone or low, and leave before the enemy team can answer. In team fights they go for the backline: the marksman or mystic who is doing the damage.',
+        play: 'Play around vision and timing, not raw aim. Look for enemies who wander off, or who just used their escape. Once your combo is on cooldown, back off and reset. Dying while chasing is the classic assassin mistake.',
+        build: 'Damage first, then enough survivability to not get one-shot. Mobility items and burst items pay off most. Counter-pick items like Metal Skin, Debuff Reducer or Unstoppable when the enemy has a hard counter to you.',
+      },
+      brawler: {
+        one: 'Get in their face and stay there',
+        short: 'Tough, close-range fighters who control space and soak damage for the team.',
+        job: 'Brawlers front-line. They start fights, hold objectives, and make the enemy deal with them so their marksman and mystic can work in peace. Many have crowd control that locks an enemy in place for the team.',
+        play: 'Pick your fights where your team can follow. Being first in means nothing if nobody is behind you. Use your durability to zone the enemy off objectives and to peel for teammates who get jumped.',
+        build: 'Health, resistances and sustain, with a few items that make your crowd control hit harder. Brawlers scale well into the late game because enemy damage stops being able to kill them.',
+      },
+      marksman: {
+        one: 'Deal damage from a distance, all game long',
+        short: 'Gun-focused ranged heroes. Weaker early, the strongest sustained damage late.',
+        job: 'Marksmen are the steady damage source. They out-trade in lane with good aim, take objectives fast with their gun, and in team fights they chip the front line down from behind their brawler.',
+        play: 'Position is everything. Stay at a range where you can shoot but their assassin cannot reach you without committing. Farm well, because marksmen need souls to come online, and use high ground and cover.',
+        build: 'Weapon items: fire rate, weapon damage, ammo, and later lifesteal and bullet resist shred. One or two defensive items against the enemy assassin, and a mobility item for escapes.',
+      },
+      support: {
+        one: 'Make the whole team stronger',
+        short: 'Healers, shielders and lockdown specialists. Not the ones getting kills, but the reason the team does.',
+        job: 'Supports keep the team alive and in position. They heal, shield, slow and freeze, and their ultimates often decide a team fight on their own: Dynamo pulls everyone together and heals the team, Kelvin seals a room with a healing dome, Ivy carries an ally across the map, Paige and Rem protect and boost the people around them.',
+        play: 'Stay near the teammate who benefits most from you and watch their health, not your crosshair. Save your lockdown for the moment it wins a fight, not the moment it is off cooldown. You still farm, but you do not need to win your lane, just not lose it.',
+        build: 'Healing and cooldown items first: Healing Booster, Rapid Recharge, Superior Cooldown, Rescue Beam, Divine Barrier. Then enough health and spirit resist to survive being the enemy assassin\'s favourite target.',
+      },
+      mystic: {
+        one: 'Win with abilities, not bullets',
+        short: 'Spirit damage casters with big area effects, healing, or crowd control.',
+        job: 'Mystics change the shape of a fight. Some blow up a whole team with area damage, some heal and shield, some lock down the enemy. They are usually the team\'s best answer to grouped enemies and to objectives.',
+        play: 'Learn your cooldowns and respect them: a mystic with all abilities on cooldown is just a weak gun. Use the time between fights to farm and build spirit power, and save your big ability for when the enemy groups up.',
+        build: 'Spirit power and cooldown reduction above everything, then items that make your abilities hit harder: Mystic Burst early, then Surge of Power, Mystic Slow, Echo Shard and similar. Pick up health when you start dying before you can cast.',
+      },
+    };
+
+    let heroes = [], items = [], byId = {}, usage = {};
+
+    // Inside one stage, the 2-4 items most players actually buy on this hero.
+    function recommended(ids) {
+      const n = Math.min(ids.length, Math.max(2, Math.min(4, Math.ceil(ids.length / 3))));
+      return new Set([...ids].sort((a, b) => (usage[b] || 0) - (usage[a] || 0)).slice(0, n));
+    }
+
+    function classTile(type, on) {
+      const c = CLASSES[type] || { one: '', short: '' };
+      return `<button class="class-tile ${on ? 'on' : ''}" data-type="${esc(type)}"><h3>${esc(type)}</h3><div class="one">${esc(c.one)}</div><p>${esc(c.short)}</p></button>`;
+    }
+    function classDetail(type) {
+      const c = CLASSES[type]; if (!c) return '';
+      return `<div class="class-detail"><h3>${esc(type)}s: ${esc(c.one)}</h3>
+        <div class="cols">
+          <div><b>Their job</b><p>${esc(c.job)}</p></div>
+          <div><b>How to play</b><p>${esc(c.play)}</p></div>
+          <div><b>What to build</b><p>${esc(c.build)}</p></div>
+        </div></div>`;
+    }
+
+    function renderGrid(filter = '', text = '') {
+      const types = [...new Set(heroes.map(h => h.type).filter(Boolean))].sort();
+      const list = heroes.filter(h => (!filter || h.type === filter) && h.name.toLowerCase().includes(text.toLowerCase()));
+      $('#main').innerHTML = `
+        <section class="page-hero"><h1>The Roster</h1><p>${heroes.length} heroes. Pick a class to read what it does, or choose a hero to open their file.</p></section>
+        <div class="class-grid">${types.map(t => classTile(t, filter === t)).join('')}</div>
+        ${filter ? classDetail(filter) : ''}
+        <div class="controls">
+          <button class="btn ${!filter ? 'on' : ''}" data-type="">All classes</button>
+          ${types.map(t => `<button class="btn ${filter === t ? 'on' : ''}" data-type="${esc(t)}">${esc(t)}</button>`).join('')}
+          <input type="search" id="q" placeholder="Search heroes" value="${esc(text)}" aria-label="Search heroes">
+        </div>
+        <div class="grid auto-fill">
+          ${list.map(h => `<a class="hero-card" href="?id=${h.id}">
+            <img src="${esc(h.card)}" alt="">
+            <div class="name">${esc(h.name)}</div><div class="type">${esc(h.type)}</div></a>`).join('') || '<p class="muted">No heroes match that search.</p>'}
+        </div>`;
+      $$('[data-type]').forEach(b => b.onclick = () => renderGrid(b.dataset.type === filter && b.classList.contains('class-tile') ? '' : b.dataset.type, $('#q').value));
+      const q = $('#q');
+      q.oninput = () => { renderGrid(filter, q.value); const n = $('#q'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };
+    }
+
+    function renderBuild(h, builds, idx) {
+      const b = builds[idx];
+      const stages = b.stages.map(st => ({ ...st, items: st.items.filter(id => byId[id]) })).filter(st => st.items.length);
+      const total = stages.flatMap(s => s.items).reduce((s, id) => s + byId[id].cost, 0);
+      const link = 'builds.html?b=' + encodeBuild({ name: b.name.slice(0, 60), hero: h.id, stages: stages.map(st => ({ name: st.name.slice(0, 30), items: st.items })) });
+      const date = b.updated ? new Date(b.updated * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+      $('#top-build').innerHTML = `
+        <h3>${esc(b.name)}</h3>
+        <div class="meta"><b>${fmtNum(b.matches)} matches in the last 14 days</b> &middot; <b>${fmtNum(b.winRate, 1)}% win rate</b> &middot; ${stages.flatMap(s => s.items).length} items &middot; ${fmtNum(total)} souls${date ? ' &middot; updated ' + date : ''}</div>
+        ${b.description ? `<p class="muted" style="font-size:16px;margin:0 0 10px">${esc(b.description).slice(0, 400)}</p>` : ''}
+        <p class="muted" style="font-size:15px;margin:0 0 6px"><span class="rec-badge">&#9733; Recommended</span> marks the items in each stage that most ${esc(h.name)} players buy. Start with those, then adapt the rest to the match.</p>
+        ${stages.map(st => { const rec = recommended(st.items); return `<div class="build-stage">
+          <div class="sname">${esc(st.name)}</div>
+          ${st.note ? `<div class="snote">${esc(st.note)}</div>` : ''}
+          <div class="chips">${st.items.map(id => itemChipHtml(byId[id], `<span class="wr" style="color:var(--dim)">${fmtNum(byId[id].cost)}${rec.has(id) ? ' <span class="rec-badge">&#9733; Recommended</span>' : ''}</span>`).replace('class="item-chip', rec.has(id) ? 'class="item-chip rec' : 'class="item-chip')).join('')}</div>
+        </div>`; }).join('')}
+        <p style="margin:16px 0 0"><a class="btn primary" href="${link}">Open in the workshop</a> <span class="muted" style="font-size:15px">Loads it as a starting point you can edit and save.</span></p>
+        ${builds.length > 1 ? `<div class="build-switch"><span class="label" style="align-self:center">Most played</span>${builds.map((o, i) => `<button class="btn small ${i === idx ? 'on' : ''}" data-build="${i}">#${i + 1} ${esc(o.name).slice(0, 36)}</button>`).join('')}</div>` : ''}`;
+      $$('#top-build .item-chip').forEach(c => c.onclick = () => openModal(itemDetailHtml(byId[c.dataset.id])));
+      $$('#top-build [data-build]').forEach(c => c.onclick = () => renderBuild(h, builds, +c.dataset.build));
+    }
+
+    async function renderHero(h) {
+      document.title = `${h.name} — Soulbook`;
+      const stats = Object.entries(STAT_LABELS)
+        .filter(([k]) => h.stats[k] != null)
+        .map(([k, [label, unit]]) => `<div><span>${label}</span><span>${fmtNum(h.stats[k], 1)}${unit}</span></div>`).join('');
+      const cls = CLASSES[h.type];
+      $('#main').innerHTML = `
+        <p style="margin:24px 0 0"><a href="heroes.html" class="btn small">&larr; All heroes</a></p>
+        <div class="divider" style="margin-top:10px"><span>Dossier</span></div>
+        <div class="hero-detail">
+          <div>
+            <div class="hero-portrait"><img src="${esc(h.card)}" alt="${esc(h.name)}"></div>
+            <div class="tile corners" style="margin-top:22px">
+              <div class="label" style="margin-bottom:8px">Base stats</div>
+              <div class="stat-list" style="grid-template-columns:1fr">${stats}</div>
+            </div>
+            ${cls ? `<div class="tile" style="margin-top:22px"><div class="label">Class: ${esc(h.type)}</div><p style="margin:6px 0 0;font-size:16px"><em class="green">${esc(cls.one)}.</em> ${esc(cls.short)} <a href="heroes.html?type=${esc(h.type)}">Read the class guide &rarr;</a></p></div>` : ''}
+          </div>
+          <div>
+            <h2>${esc(h.name)}</h2>
+            <p class="tagline">${h.role || (cls ? esc(cls.one) : '')}</p>
+            <div class="tags">
+              ${h.type ? `<span class="tag">${esc(h.type)}</span>` : ''}
+              ${h.gun ? `<span class="tag">${esc(h.gun)}</span>` : ''}
+              ${h.complexity ? `<span class="tag">Complexity ${'&#9670;'.repeat(h.complexity)}</span>` : ''}
+              ${h.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}
+            </div>
+            ${h.playstyle ? `<div class="tile" style="margin:14px 0"><div class="label">How they play</div><p style="margin:6px 0 0">${h.playstyle}</p></div>` : ''}
+            <div class="label" style="margin-top:22px">Abilities</div>
+            <div id="abilities"><div class="loading">Reading the grimoire</div></div>
+            <div class="divider"><span>Top build</span></div>
+            <p class="muted" style="text-align:center;margin:-10px 0 14px;font-size:16px">The community build most players picked for ${esc(h.name)} in real matches over the last two weeks.</p>
+            <div class="tile corners top-build" id="top-build"><div class="loading">Asking the community</div></div>
+            <div class="divider"><span>Lore</span></div>
+            <p class="lore">${h.lore || '<span class="muted">Valve has not published this hero\'s story yet.</span>'}</p>
+            <p style="margin-top:24px"><a class="btn primary" href="builds.html?hero=${h.id}">Plan a build for ${esc(h.name)} from scratch</a></p>
+          </div>
+        </div>`;
+      loadAbilities(h.abilityKeys).then(abilities => {
+        $('#abilities').innerHTML = abilities.map((a, i) => `
+          <div class="ability">
+            <img src="${esc(a.img)}" alt="">
+            <div>
+              <h4>${i + 1}. ${esc(a.name)}</h4>
+              <div class="meta">${i === 3 ? 'Ultimate' : 'Ability'}${a.cooldown ? ` &middot; ${fmtNum(a.cooldown, 1)}s cooldown` : ''}</div>
+              ${a.quip ? `<p style="font-style:italic" class="muted">${a.quip}</p>` : ''}
+              <p>${a.desc}</p>
+              ${a.tiers.some(Boolean) ? `<div class="upgrades">${a.tiers.map((t, j) => `<div><b>Upgrade ${j + 1} &middot; ${[1, 2, 5][j]} AP</b>${t || '&mdash;'}</div>`).join('')}</div>` : ''}
+            </div>
+          </div>`).join('') || '<p class="muted">No abilities found.</p>';
+      }).catch(e => showError($('#abilities'), e));
+      Promise.all([loadItems(), loadTopBuilds(h.id), loadHeroItemUsage(h.id)]).then(([its, builds, use]) => {
+        items = its; byId = Object.fromEntries(items.map(i => [i.id, i])); usage = use;
+        if (!builds.length) { $('#top-build').innerHTML = '<p class="muted" style="margin:0">No community builds published for this hero yet.</p>'; return; }
+        renderBuild(h, builds, 0);
+      }).catch(e => showError($('#top-build'), e));
+    }
+
+    (async () => {
+      try { heroes = await loadHeroes(); } catch (e) { showError($('#main'), e); return; }
+      const params = new URLSearchParams(location.search);
+      const hero = heroes.find(h => h.id === +params.get('id'));
+      hero ? renderHero(hero) : renderGrid(params.get('type') || '');
+    })();
+  </script>
+</body>
+</html>

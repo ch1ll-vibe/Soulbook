@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Soulbook — Deadlock meta and tier list</title>
+  <meta name="description" content="Live Deadlock tier list, hero win rates and the most popular items.">
+  <meta property="og:title" content="Soulbook — Deadlock field guide">
+  <meta property="og:description" content="Live tier lists, every hero and item, community builds and a build planner. Updated with every patch.">
+  <meta property="og:type" content="website">
+  <meta name="twitter:card" content="summary">
+  <meta name="theme-color" content="#0d1a17">
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main class="wrap">
+    <section class="page-hero">
+      <h1>The Current Meta</h1>
+      <p>Who rules the streets this week, ranked from real matches.</p>
+      <p class="label" style="margin-top:10px;font-size:11px">Unofficial fan site &middot; not affiliated with Valve</p>
+    </section>
+
+    <div class="controls">
+      <label class="label" for="period">Period</label>
+      <select id="period">
+        <option value="7">Last 7 days</option>
+        <option value="14" selected>Last 14 days</option>
+        <option value="30">Last 30 days</option>
+      </select>
+      <label class="label" for="rank">Rank</label>
+      <select id="rank">
+        <option value="">All ranks</option>
+        <option value="70">Archon and above</option>
+        <option value="80">Oracle and above</option>
+        <option value="90">Phantom and above</option>
+      </select>
+    </div>
+
+    <div class="grid cols-2">
+      <div class="frame"><div class="tile" style="border:0">
+        <div class="label" style="margin-bottom:12px">Tier list</div>
+        <div id="tiers"><div class="loading">Consulting the ledgers</div></div>
+      </div></div>
+      <div class="grid" style="align-content:start">
+        <div class="tile corners" id="spotlight" style="text-align:center"><div class="loading">Loading</div></div>
+        <div class="tile corners" id="quick"></div>
+      </div>
+    </div>
+
+    <div class="divider"><span>Winning items</span></div>
+    <p class="muted" style="text-align:center;margin-top:-8px">Highest win rate when bought, among commonly purchased items. <a href="items.html#tiers">See the full item tier list &rarr;</a></p>
+    <div class="grid auto-fill" id="top-items"><div class="loading">Counting souls</div></div>
+  </main>
+
+  <footer id="site-footer"></footer>
+  <script src="js/codex.js"></script>
+  <script>
+    let heroes = [], items = [];
+
+    function query() {
+      const days = +$('#period').value;
+      const ts = Math.floor(Date.now() / 1000) - days * 86400;
+      const rank = $('#rank').value;
+      return `?min_unix_timestamp=${ts}${rank ? '&min_average_badge=' + rank : ''}`;
+    }
+
+    async function refresh() {
+      $('#tiers').innerHTML = '<div class="loading">Consulting the ledgers</div>';
+      try {
+        const [hs, is] = await Promise.all([
+          getJSON('/v1/analytics/hero-stats' + query()),
+          getJSON('/v1/analytics/item-stats' + query()),
+        ]);
+        renderTiers(hs);
+        renderItems(is);
+      } catch (e) { showError($('#tiers'), e); }
+    }
+
+    function renderTiers(stats) {
+      const byId = Object.fromEntries(heroes.map(h => [h.id, h]));
+      const total = stats.reduce((s, r) => s + r.matches, 0) / 12 || 1;
+      const rows = stats
+        .filter(r => byId[r.hero_id] && r.matches > 0)
+        .map(r => {
+          const wr = r.wins / r.matches * 100;
+          const pr = r.matches / total * 100;
+          // Win rate decides the tier, popularity adds a small nudge.
+          return { hero: byId[r.hero_id], wr, pr, kda: (r.total_kills + r.total_assists) / Math.max(1, r.total_deaths), score: wr + pr * 0.05 };
+        })
+        .sort((a, b) => b.score - a.score);
+
+      $('#tiers').innerHTML = tierRowsHtml(rows, r => `<a class="hero-chip" href="heroes.html?id=${r.hero.id}" title="${esc(r.hero.name)}: ${fmtNum(r.wr, 1)}% win rate, ${fmtNum(r.pr, 1)}% pick rate">
+            <img src="${esc(r.hero.small)}" alt=""><span>${esc(r.hero.name)}</span><span class="wr">${fmtNum(r.wr, 1)}%</span></a>`)
+        || '<p class="muted">Not enough matches for these filters.</p>';
+
+      const best = rows[0];
+      if (best) {
+        $('#spotlight').innerHTML = `
+          <div class="label">Hero of the week</div>
+          <a href="heroes.html?id=${best.hero.id}" style="display:block;margin:12px auto;width:150px">
+            <img src="${esc(best.hero.card)}" alt="${esc(best.hero.name)}" style="width:150px;border:1px solid var(--gold);outline:1px solid var(--gold-faint);outline-offset:4px">
+          </a>
+          <div class="caps gold" style="font-size:22px">${esc(best.hero.name)}</div>
+          <div class="muted" style="font-style:italic">${best.hero.role || esc(best.hero.type)}</div>
+          <div class="caps green" style="font-size:14px;margin-top:6px">${fmtNum(best.wr, 1)}% win rate &middot; ${fmtNum(best.pr, 1)}% picked</div>`;
+      }
+      const popular = [...rows].sort((a, b) => b.pr - a.pr)[0];
+      const killer = [...rows].sort((a, b) => b.kda - a.kda)[0];
+      const worst = rows[rows.length - 1];
+      $('#quick').innerHTML = `<div class="label" style="margin-bottom:8px">At a glance</div><div class="totals">
+        ${popular ? `<div class="row"><span>Most picked</span><span>${esc(popular.hero.name)} ${fmtNum(popular.pr, 1)}%</span></div>` : ''}
+        ${killer ? `<div class="row"><span>Best KDA</span><span>${esc(killer.hero.name)} ${fmtNum(killer.kda, 2)}</span></div>` : ''}
+        ${worst ? `<div class="row"><span>Struggling</span><span>${esc(worst.hero.name)} ${fmtNum(worst.wr, 1)}%</span></div>` : ''}
+        <div class="row"><span>Matches counted</span><span>${fmtNum(total)}</span></div></div>`;
+    }
+
+    function renderItems(stats) {
+      const byId = Object.fromEntries(items.map(i => [i.id, i]));
+      const maxMatches = Math.max(...stats.map(s => s.matches));
+      const top = stats
+        .filter(s => byId[s.item_id] && s.matches > maxMatches * 0.05)
+        .map(s => ({ it: byId[s.item_id], wr: s.wins / s.matches * 100 }))
+        .sort((a, b) => b.wr - a.wr)
+        .slice(0, 12);
+      $('#top-items').innerHTML = top.map(t => itemCardHtml(t.it, `<div class="caps green" style="font-size:12px">${fmtNum(t.wr, 1)}% win rate</div>`)).join('');
+      $$('#top-items .item-card').forEach(b => b.onclick = () => openModal(itemDetailHtml(byId[b.dataset.id])));
+    }
+
+    (async () => {
+      try { [heroes, items] = await Promise.all([loadHeroes(), loadItems()]); }
+      catch (e) { showError($('#tiers'), e); return; }
+      $('#period').onchange = refresh;
+      $('#rank').onchange = refresh;
+      refresh();
+    })();
+  </script>
+</body>
+</html>

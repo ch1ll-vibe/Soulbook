@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CV monogram badges</title>
+<link href="https://fonts.googleapis.com/css2?family=Limelight&family=Josefin+Sans:wght@700&display=swap" rel="stylesheet">
+<style>body{background:#222;display:flex;gap:20px;flex-wrap:wrap;padding:20px} canvas{width:300px;height:300px;border-radius:50%;background:#000}</style>
+</head>
+<body>
+<canvas id="a" width="1000" height="1000"></canvas>
+<canvas id="b" width="1000" height="1000"></canvas>
+<canvas id="c" width="1000" height="1000"></canvas>
+<script>
+const BG = '#0d1a17', DEEP = '#08110f', GOLD = '#d2a94f', GOLD2 = '#8f7436', VERD = '#56a893', INK = '#f0e6cc';
+const S = 1000, C = S / 2;
+
+function base(ctx) {
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, S, S);
+  const g = ctx.createRadialGradient(C, 220, 50, C, 320, 720);
+  g.addColorStop(0, 'rgba(86,168,147,0.22)'); g.addColorStop(1, 'rgba(86,168,147,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+  ctx.save(); ctx.globalAlpha = 0.08; ctx.strokeStyle = GOLD; ctx.lineWidth = 2;
+  for (let i = -S; i < S * 2; i += 46) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + S, S); ctx.stroke(); ctx.beginPath(); ctx.moveTo(i, S); ctx.lineTo(i + S, 0); ctx.stroke(); }
+  ctx.restore();
+  ctx.lineWidth = 10; ctx.strokeStyle = GOLD; ctx.beginPath(); ctx.arc(C, C, 455, 0, Math.PI * 2); ctx.stroke();
+  ctx.lineWidth = 3; ctx.strokeStyle = GOLD2; ctx.beginPath(); ctx.arc(C, C, 430, 0, Math.PI * 2); ctx.stroke();
+}
+function diamond(ctx, r, w, color) { ctx.save(); ctx.translate(C, C); ctx.rotate(Math.PI / 4); ctx.lineWidth = w; ctx.strokeStyle = color; ctx.strokeRect(-r, -r, r * 2, r * 2); ctx.restore(); }
+function rays(ctx, n, inner, outer, w, color, alpha, offset = 0) {
+  ctx.save(); ctx.translate(C, C); ctx.strokeStyle = color; ctx.lineWidth = w; ctx.globalAlpha = alpha; ctx.lineCap = 'round';
+  for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 + offset; ctx.beginPath(); ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner); ctx.lineTo(Math.cos(a) * outer, Math.sin(a) * outer); ctx.stroke(); }
+  ctx.restore();
+}
+function glow(ctx, x, y, r, color) { const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2); }
+function text(ctx, t, x, y, size, color, font = 'Limelight', weight = 400) { ctx.fillStyle = color; ctx.font = `${weight} ${size}px ${font}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(t, x, y); }
+function outlined(ctx, t, x, y, size, fill, stroke, w) { ctx.font = `400 ${size}px Limelight`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'; ctx.lineWidth = w; ctx.strokeStyle = stroke; ctx.strokeText(t, x, y); ctx.fillStyle = fill; ctx.fillText(t, x, y); }
+
+async function draw() {
+  await document.fonts.load('400 100px Limelight'); await document.fonts.load('700 100px "Josefin Sans"');
+
+  // A: interlocked C and V inside a sunburst disc (refined)
+  let ctx = document.getElementById('a').getContext('2d'); base(ctx);
+  // sunburst: 16 long gold rays with 16 short brass rays between them, ending in a clean ring
+  rays(ctx, 16, 262, 405, 12, GOLD, 1);
+  rays(ctx, 16, 262, 355, 6, GOLD2, 1, Math.PI / 16);
+  ctx.lineWidth = 3; ctx.strokeStyle = GOLD2; ctx.beginPath(); ctx.arc(C, C, 405, 0, Math.PI * 2); ctx.stroke();
+  // dark disc with a double ring
+  ctx.fillStyle = DEEP; ctx.beginPath(); ctx.arc(C, C, 262, 0, Math.PI * 2); ctx.fill();
+  ctx.lineWidth = 10; ctx.strokeStyle = GOLD; ctx.beginPath(); ctx.arc(C, C, 262, 0, Math.PI * 2); ctx.stroke();
+  ctx.lineWidth = 3; ctx.strokeStyle = GOLD2; ctx.beginPath(); ctx.arc(C, C, 240, 0, Math.PI * 2); ctx.stroke();
+  glow(ctx, C, C, 210, 'rgba(86,168,147,0.32)');
+  // letters: the V sits behind, the C in front, each with a dark halo so they read as separate shapes
+  outlined(ctx, 'V', C + 92, C + 38, 350, VERD, DEEP, 26);
+  outlined(ctx, 'C', C - 82, C - 18, 350, GOLD, DEEP, 26);
+  // small verdigris diamonds at the four compass points of the ring
+  for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+    ctx.save(); ctx.translate(C + Math.cos(a) * 262, C + Math.sin(a) * 262); ctx.rotate(Math.PI / 4);
+    ctx.fillStyle = DEEP; ctx.fillRect(-22, -22, 44, 44); ctx.fillStyle = VERD; ctx.fillRect(-14, -14, 28, 28); ctx.restore();
+  }
+
+  // B: stacked C over V in a tall deco lozenge with bars
+  ctx = document.getElementById('b').getContext('2d'); base(ctx);
+  diamond(ctx, 330, 7, GOLD); diamond(ctx, 300, 3, GOLD2);
+  // horizontal deco bars
+  ctx.strokeStyle = GOLD; ctx.lineWidth = 6; ctx.lineCap = 'round';
+  for (const [y, len] of [[C - 262, 70], [C - 240, 120], [C + 240, 120], [C + 262, 70]]) { ctx.beginPath(); ctx.moveTo(C - len, y); ctx.lineTo(C + len, y); ctx.stroke(); }
+  // divider with a verdigris diamond
+  ctx.beginPath(); ctx.moveTo(C - 190, C); ctx.lineTo(C - 40, C); ctx.moveTo(C + 40, C); ctx.lineTo(C + 190, C); ctx.stroke();
+  ctx.save(); ctx.translate(C, C); ctx.rotate(Math.PI / 4); ctx.fillStyle = VERD; ctx.fillRect(-16, -16, 32, 32); ctx.restore();
+  outlined(ctx, 'C', C, C - 128, 300, GOLD, DEEP, 14);
+  outlined(ctx, 'V', C, C + 128, 300, VERD, DEEP, 14);
+
+  // C: geometric monogram drawn from strokes: a C arc holding a V, over faint rays
+  ctx = document.getElementById('c').getContext('2d'); base(ctx);
+  rays(ctx, 36, 300, 410, 3, GOLD2, 0.5);
+  diamond(ctx, 330, 7, GOLD); diamond(ctx, 300, 3, GOLD2);
+  glow(ctx, C, C, 220, 'rgba(86,168,147,0.3)');
+  ctx.lineCap = 'butt'; ctx.lineJoin = 'miter';
+  // the C: a thick arc open to the right
+  ctx.strokeStyle = GOLD; ctx.lineWidth = 58; ctx.beginPath(); ctx.arc(C - 20, C, 185, Math.PI * 0.22, Math.PI * 1.78); ctx.stroke();
+  // serifs on the C ends
+  ctx.fillStyle = GOLD;
+  for (const a of [Math.PI * 0.22, Math.PI * 1.78]) { const x = C - 20 + Math.cos(a) * 185, y = C + Math.sin(a) * 185; ctx.save(); ctx.translate(x, y); ctx.rotate(a); ctx.fillRect(-29, -16, 58, 32); ctx.restore(); }
+  // the V nested in the C's mouth
+  ctx.strokeStyle = VERD; ctx.lineWidth = 50; ctx.lineJoin = 'miter'; ctx.miterLimit = 6;
+  ctx.beginPath(); ctx.moveTo(C - 60, C - 150); ctx.lineTo(C + 60, C + 150); ctx.lineTo(C + 180, C - 150); ctx.stroke();
+  ctx.fillStyle = VERD; ctx.fillRect(C - 95, C - 180, 70, 30); ctx.fillRect(C + 145, C - 180, 70, 30);
+
+  window.READY = true;
+}
+draw();
+</script>
+</body>
+</html>

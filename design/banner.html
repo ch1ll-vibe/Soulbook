@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Channel banner</title>
+<link href="https://fonts.googleapis.com/css2?family=Limelight&family=Josefin+Sans:wght@700&family=Lora:ital@1&display=swap" rel="stylesheet">
+<style>body{background:#222;padding:20px} canvas{width:100%;max-width:1280px;display:block;margin-bottom:12px} #safe{outline:2px dashed #f55}</style>
+</head>
+<body>
+<canvas id="b" width="2560" height="1440"></canvas>
+<script>
+const BG = '#0d1a17', DEEP = '#08110f', GOLD = '#d2a94f', GOLD2 = '#8f7436', VERD = '#56a893', INK = '#f0e6cc', DIM = '#b3a685';
+const W = 2560, H = 1440, CX = W / 2, CY = H / 2;
+// YouTube: the 1546x423 area in the centre is visible on every device.
+const SAFE = { w: 1546, h: 423 };
+
+function rays(ctx, cx, cy, n, inner, outer, w, color, alpha, offset = 0) {
+  ctx.save(); ctx.translate(cx, cy); ctx.strokeStyle = color; ctx.lineWidth = w; ctx.globalAlpha = alpha; ctx.lineCap = 'round';
+  for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 + offset; ctx.beginPath(); ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner); ctx.lineTo(Math.cos(a) * outer, Math.sin(a) * outer); ctx.stroke(); }
+  ctx.restore();
+}
+function glow(ctx, x, y, r, color) { const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2); }
+function outlined(ctx, t, x, y, size, fill, stroke, w, align = 'center') { ctx.font = `400 ${size}px Limelight`; ctx.textAlign = align; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'; ctx.lineWidth = w; ctx.strokeStyle = stroke; ctx.strokeText(t, x, y); ctx.fillStyle = fill; ctx.fillText(t, x, y); }
+function caps(ctx, text, x, y, size, color, spacing, align = 'left') {
+  ctx.save(); ctx.fillStyle = color; ctx.font = `700 ${size}px "Josefin Sans"`; ctx.textBaseline = 'middle';
+  const widths = [...text].map(ch => ctx.measureText(ch).width); const total = widths.reduce((a, b) => a + b, 0) + spacing * (text.length - 1);
+  let cx = align === 'center' ? x - total / 2 : x; [...text].forEach((ch, i) => { ctx.fillText(ch, cx, y); cx += widths[i] + spacing; }); ctx.restore();
+}
+
+// The channel icon, drawn at any size
+function badge(ctx, cx, cy, r) {
+  const s = r / 500;
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(s, s);
+  ctx.fillStyle = BG; ctx.beginPath(); ctx.arc(0, 0, 500, 0, Math.PI * 2); ctx.fill();
+  ctx.lineWidth = 10; ctx.strokeStyle = GOLD; ctx.beginPath(); ctx.arc(0, 0, 455, 0, Math.PI * 2); ctx.stroke();
+  ctx.lineWidth = 3; ctx.strokeStyle = GOLD2; ctx.beginPath(); ctx.arc(0, 0, 430, 0, Math.PI * 2); ctx.stroke();
+  rays(ctx, 0, 0, 16, 262, 405, 12, GOLD, 1); rays(ctx, 0, 0, 16, 262, 355, 6, GOLD2, 1, Math.PI / 16);
+  ctx.lineWidth = 3; ctx.strokeStyle = GOLD2; ctx.beginPath(); ctx.arc(0, 0, 405, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = DEEP; ctx.beginPath(); ctx.arc(0, 0, 262, 0, Math.PI * 2); ctx.fill();
+  ctx.lineWidth = 10; ctx.strokeStyle = GOLD; ctx.beginPath(); ctx.arc(0, 0, 262, 0, Math.PI * 2); ctx.stroke();
+  ctx.lineWidth = 3; ctx.strokeStyle = GOLD2; ctx.beginPath(); ctx.arc(0, 0, 240, 0, Math.PI * 2); ctx.stroke();
+  glow(ctx, 0, 0, 210, 'rgba(86,168,147,0.32)');
+  outlined(ctx, 'V', 92, 38, 350, VERD, DEEP, 26); outlined(ctx, 'C', -82, -18, 350, GOLD, DEEP, 26);
+  for (const a of [0, Math.PI / 2, Math.PI, Math.PI * 1.5]) { ctx.save(); ctx.translate(Math.cos(a) * 262, Math.sin(a) * 262); ctx.rotate(Math.PI / 4); ctx.fillStyle = DEEP; ctx.fillRect(-22, -22, 44, 44); ctx.fillStyle = VERD; ctx.fillRect(-14, -14, 28, 28); ctx.restore(); }
+  ctx.restore();
+}
+
+async function draw() {
+  await document.fonts.load('400 100px Limelight'); await document.fonts.load('700 100px "Josefin Sans"'); await document.fonts.load('italic 100px Lora');
+  const ctx = document.getElementById('b').getContext('2d');
+  // background: dark green, lattice, big faint sunburst behind everything
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+  ctx.save(); ctx.globalAlpha = 0.07; ctx.strokeStyle = GOLD; ctx.lineWidth = 2;
+  for (let i = -H; i < W + H; i += 46) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + H, H); ctx.stroke(); ctx.beginPath(); ctx.moveTo(i, H); ctx.lineTo(i + H, 0); ctx.stroke(); }
+  ctx.restore();
+  glow(ctx, CX, CY, 900, 'rgba(86,168,147,0.22)');
+  rays(ctx, CX, CY, 48, 330, 1500, 5, GOLD2, 0.22, Math.PI / 48);
+  rays(ctx, CX, CY, 24, 330, 1500, 9, GOLD, 0.18);
+  // thin horizontal deco rules spanning the safe area edges
+  ctx.strokeStyle = GOLD; ctx.lineWidth = 4; ctx.globalAlpha = 0.9;
+  for (const y of [CY - SAFE.h / 2 + 8, CY + SAFE.h / 2 - 8]) { ctx.beginPath(); ctx.moveTo(CX - SAFE.w / 2, y); ctx.lineTo(CX + SAFE.w / 2, y); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+  // small diamonds at the rule ends
+  for (const x of [CX - SAFE.w / 2, CX + SAFE.w / 2]) for (const y of [CY - SAFE.h / 2 + 8, CY + SAFE.h / 2 - 8]) { ctx.save(); ctx.translate(x, y); ctx.rotate(Math.PI / 4); ctx.fillStyle = VERD; ctx.fillRect(-12, -12, 24, 24); ctx.restore(); }
+
+  // badge on the left of the safe area, text to its right
+  const bx = CX - 470, by = CY;
+  badge(ctx, bx, by, 165);
+  const tx = bx + 215;
+  outlined(ctx, 'ch1ll_vibe', tx, CY - 62, 150, GOLD, DEEP, 16, 'left');
+  caps(ctx, 'DEADLOCK GUIDES  ·  BUILDS  ·  PATCH BREAKDOWNS', tx + 6, CY + 48, 38, INK, 6);
+  ctx.font = 'italic 40px Lora'; ctx.fillStyle = DIM; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  ctx.fillText('Creator of Soulbook, the Deadlock field guide', tx + 6, CY + 118);
+
+  // outside the safe area (desktop only): quiet corner marks
+  caps(ctx, 'UNOFFICIAL FAN CHANNEL  ·  NOT AFFILIATED WITH VALVE', CX, H - 95, 26, GOLD2, 5, 'center');
+  window.READY = true;
+}
+draw();
+</script>
+</body>
+</html>

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Profile picture drafts</title>
+<link href="https://fonts.googleapis.com/css2?family=Limelight&family=Josefin+Sans:wght@700&display=swap" rel="stylesheet">
+<style>body{background:#222;color:#eee;font-family:sans-serif;display:flex;gap:20px;flex-wrap:wrap;padding:20px} canvas{width:300px;height:300px;border-radius:50%;background:#000}</style>
+</head>
+<body>
+<canvas id="a" width="1000" height="1000"></canvas>
+<canvas id="b" width="1000" height="1000"></canvas>
+<canvas id="c" width="1000" height="1000"></canvas>
+<script>
+const BG = '#0d1a17', DEEP = '#08110f', GOLD = '#d2a94f', GOLD2 = '#8f7436', VERD = '#56a893', INK = '#f0e6cc';
+const S = 1000, C = S / 2;
+
+function base(ctx) {
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, S, S);
+  // soft verdigris glow at the top
+  const g = ctx.createRadialGradient(C, 200, 50, C, 300, 700);
+  g.addColorStop(0, 'rgba(86,168,147,0.22)'); g.addColorStop(1, 'rgba(86,168,147,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+  // fine diagonal lattice
+  ctx.save(); ctx.globalAlpha = 0.08; ctx.strokeStyle = GOLD; ctx.lineWidth = 2;
+  for (let i = -S; i < S * 2; i += 46) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + S, S); ctx.stroke(); ctx.beginPath(); ctx.moveTo(i, S); ctx.lineTo(i + S, 0); ctx.stroke(); }
+  ctx.restore();
+  // outer rings
+  ctx.lineWidth = 10; ctx.strokeStyle = GOLD; ctx.beginPath(); ctx.arc(C, C, 455, 0, Math.PI * 2); ctx.stroke();
+  ctx.lineWidth = 3; ctx.strokeStyle = GOLD2; ctx.beginPath(); ctx.arc(C, C, 430, 0, Math.PI * 2); ctx.stroke();
+}
+function diamond(ctx, r, w, color) {
+  ctx.save(); ctx.translate(C, C); ctx.rotate(Math.PI / 4);
+  ctx.lineWidth = w; ctx.strokeStyle = color; ctx.strokeRect(-r, -r, r * 2, r * 2); ctx.restore();
+}
+function rays(ctx, n, inner, outer) {
+  ctx.save(); ctx.translate(C, C); ctx.strokeStyle = GOLD2; ctx.lineWidth = 4; ctx.globalAlpha = 0.6;
+  for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2; ctx.beginPath(); ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner); ctx.lineTo(Math.cos(a) * outer, Math.sin(a) * outer); ctx.stroke(); }
+  ctx.restore();
+}
+function wave(ctx, y, amp, color) {
+  ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = 9; ctx.lineCap = 'round'; ctx.beginPath();
+  for (let x = 300; x <= 700; x += 4) { const t = (x - 300) / 400; const yy = y + Math.sin(t * Math.PI * 4) * amp * Math.sin(t * Math.PI); x === 300 ? ctx.moveTo(x, yy) : ctx.lineTo(x, yy); }
+  ctx.stroke(); ctx.restore();
+}
+function caps(ctx, text, y, size, color, spacing) {
+  ctx.save(); ctx.fillStyle = color; ctx.font = `700 ${size}px "Josefin Sans"`; ctx.textBaseline = 'middle';
+  const widths = [...text].map(ch => ctx.measureText(ch).width); const total = widths.reduce((a, b) => a + b, 0) + spacing * (text.length - 1);
+  let x = C - total / 2; [...text].forEach((ch, i) => { ctx.fillText(ch, x, y); x += widths[i] + spacing; }); ctx.restore();
+}
+
+async function draw() {
+  await document.fonts.load('400 100px Limelight'); await document.fonts.load('700 100px "Josefin Sans"');
+
+  // A: big monogram C with a vibe wave, double diamond frame
+  let ctx = document.getElementById('a').getContext('2d'); base(ctx);
+  diamond(ctx, 300, 8, GOLD); diamond(ctx, 270, 3, GOLD2);
+  ctx.fillStyle = GOLD; ctx.font = '400 430px Limelight'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('C', C, C - 40);
+  wave(ctx, 700, 26, VERD);
+  caps(ctx, 'CH1LL_VIBE', 790, 46, INK, 10);
+
+  // B: interlocked CV monogram with sunburst rays
+  ctx = document.getElementById('b').getContext('2d'); base(ctx);
+  rays(ctx, 36, 150, 400);
+  ctx.fillStyle = DEEP; ctx.beginPath(); ctx.arc(C, C, 290, 0, Math.PI * 2); ctx.fill();
+  ctx.lineWidth = 8; ctx.strokeStyle = GOLD; ctx.beginPath(); ctx.arc(C, C, 290, 0, Math.PI * 2); ctx.stroke();
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = VERD; ctx.font = '400 330px Limelight'; ctx.fillText('V', C + 70, C + 30);
+  ctx.fillStyle = GOLD; ctx.font = '400 330px Limelight'; ctx.fillText('C', C - 80, C - 10);
+  caps(ctx, 'CH1LL_VIBE', 760, 40, INK, 9);
+
+  // C: stacked wordmark inside a diamond
+  ctx = document.getElementById('c').getContext('2d'); base(ctx);
+  diamond(ctx, 330, 8, GOLD); diamond(ctx, 300, 3, GOLD2);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillStyle = GOLD; ctx.font = '400 210px Limelight'; ctx.fillText('ch1ll', C, C - 95);
+  ctx.fillStyle = VERD; ctx.font = '400 150px Limelight'; ctx.fillText('vibe', C, C + 85);
+  wave(ctx, C + 200, 14, GOLD2);
+
+  window.READY = true;
+}
+draw();
+</script>
+</body>
+</html>

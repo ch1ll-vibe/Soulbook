@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Patterned banner</title>
+<link href="https://fonts.googleapis.com/css2?family=Limelight&family=Josefin+Sans:wght@700&display=swap" rel="stylesheet">
+<style>body{background:#222;padding:20px} canvas{width:100%;max-width:1280px;display:block;margin-bottom:12px}</style>
+</head>
+<body>
+<canvas id="a" width="2560" height="1440"></canvas>
+<canvas id="b" width="2560" height="1440"></canvas>
+<script>
+const BG = '#0d1a17', DEEP = '#08110f', GOLD = '#d2a94f', GOLD2 = '#8f7436', VERD = '#56a893', INK = '#f0e6cc';
+const W = 2560, H = 1440, CX = W / 2, CY = H / 2;
+
+function outlined(ctx, t, x, y, size, fill, stroke, w) { ctx.font = `400 ${size}px Limelight`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'; ctx.lineWidth = w; ctx.strokeStyle = stroke; ctx.strokeText(t, x, y); ctx.fillStyle = fill; ctx.fillText(t, x, y); }
+function glow(ctx, x, y, r, color) { const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2); }
+
+// Pattern A: art-deco fans (overlapping scallops), the classic 1920s wallpaper
+function fans(ctx) {
+  const r = 110, rowH = r * 0.62;
+  ctx.lineWidth = 3;
+  for (let row = -1, y = -r; y < H + r; y += rowH, row++) {
+    const off = row % 2 ? r : 0;
+    for (let x = -r + off; x < W + r; x += r * 2) {
+      // dark fill so each fan covers the one behind it
+      ctx.fillStyle = BG; ctx.beginPath(); ctx.arc(x, y, r, Math.PI, 0); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = GOLD2; ctx.globalAlpha = 0.55; ctx.beginPath(); ctx.arc(x, y, r, Math.PI, 0); ctx.stroke();
+      ctx.globalAlpha = 0.35; ctx.beginPath(); ctx.arc(x, y, r * 0.66, Math.PI, 0); ctx.stroke();
+      ctx.globalAlpha = 0.5; ctx.strokeStyle = VERD; ctx.beginPath(); ctx.arc(x, y, r * 0.3, Math.PI, 0); ctx.stroke();
+      // ribs
+      ctx.strokeStyle = GOLD2; ctx.globalAlpha = 0.25;
+      for (let i = 1; i < 6; i++) { const a = Math.PI + (i / 6) * Math.PI; ctx.beginPath(); ctx.moveTo(x + Math.cos(a) * r * 0.3, y + Math.sin(a) * r * 0.3); ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+    }
+  }
+}
+
+// Pattern B: diamond lattice with small gold diamonds and verdigris dots at the crossings
+function lattice(ctx) {
+  const s = 120;
+  ctx.strokeStyle = GOLD2; ctx.lineWidth = 2; ctx.globalAlpha = 0.45;
+  for (let i = -H; i < W + H; i += s) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + H, H); ctx.stroke(); ctx.beginPath(); ctx.moveTo(i, H); ctx.lineTo(i + H, 0); ctx.stroke(); }
+  ctx.globalAlpha = 1;
+  for (let y = 0; y <= H; y += s) for (let x = ((y / s) % 2) * s / 2 * 0; x <= W; x += s) {
+    const cxp = x + ((Math.round(y / s) % 2) ? s / 2 : 0);
+    ctx.save(); ctx.translate(cxp, y); ctx.rotate(Math.PI / 4); ctx.fillStyle = GOLD; ctx.globalAlpha = 0.7; ctx.fillRect(-9, -9, 18, 18); ctx.restore();
+  }
+  for (let y = s / 2; y <= H; y += s) for (let x = s / 2; x <= W; x += s) {
+    const cxp = x + ((Math.round((y - s / 2) / s) % 2) ? s / 2 : 0);
+    ctx.fillStyle = VERD; ctx.globalAlpha = 0.6; ctx.beginPath(); ctx.arc(cxp, y, 5, 0, Math.PI * 2); ctx.fill(); ctx.globalAlpha = 1;
+  }
+}
+
+function plaque(ctx) {
+  // dark plaque behind the name so it stays readable over the pattern, with the double gold frame
+  const pw = 1380, ph = 330;
+  glow(ctx, CX, CY, 900, 'rgba(8,17,15,0.9)');
+  ctx.fillStyle = DEEP; ctx.fillRect(CX - pw / 2, CY - ph / 2, pw, ph);
+  ctx.lineWidth = 8; ctx.strokeStyle = GOLD; ctx.strokeRect(CX - pw / 2, CY - ph / 2, pw, ph);
+  ctx.lineWidth = 3; ctx.strokeStyle = GOLD2; ctx.strokeRect(CX - pw / 2 + 16, CY - ph / 2 + 16, pw - 32, ph - 32);
+  for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) { ctx.save(); ctx.translate(CX + dx * pw / 2, CY + dy * ph / 2); ctx.rotate(Math.PI / 4); ctx.fillStyle = DEEP; ctx.fillRect(-26, -26, 52, 52); ctx.fillStyle = VERD; ctx.fillRect(-16, -16, 32, 32); ctx.restore(); }
+  outlined(ctx, 'ch1ll_vibe', CX, CY - 6, 210, GOLD, DEEP, 18);
+}
+
+async function draw() {
+  await document.fonts.load('400 100px Limelight');
+  for (const [id, pattern] of [['a', fans], ['b', lattice]]) {
+    const ctx = document.getElementById(id).getContext('2d');
+    ctx.fillStyle = BG; ctx.fillRect(0, 0, W, H);
+    pattern(ctx);
+    glow(ctx, CX, CY, 1100, 'rgba(86,168,147,0.16)');
+    plaque(ctx);
+  }
+  window.READY = true;
+}
+draw();
+</script>
+</body>
+</html>

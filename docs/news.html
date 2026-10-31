@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>News — Soulbook</title>
+  <meta name="description" content="Weekly Deadlock news: patch summaries, meta shifts and site updates.">
+  <meta name="theme-color" content="#0d1a17">
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main class="wrap">
+    <section class="page-hero">
+      <h1>The Gazette</h1>
+      <p>Weekly patch summaries and meta notes, plus a feed of Valve's official announcements.</p>
+      <p class="caps" id="updated" style="font-size:13px;color:var(--verdigris);margin-top:8px"></p>
+    </section>
+
+    <div class="tabs">
+      <button class="btn on" data-view="posts">Weekly posts</button>
+      <button class="btn" data-view="patches">Official patch notes</button>
+    </div>
+
+    <div class="grid cols-2" style="align-items:start">
+      <div>
+        <div id="posts"></div>
+        <div id="patches" hidden><div class="loading">Fetching the changelog</div></div>
+      </div>
+      <div class="grid" style="align-content:start">
+        <div class="tile corners" id="live">
+          <div class="label" style="margin-bottom:8px">This week in numbers</div>
+          <div class="loading">Reading the ledgers</div>
+        </div>
+        <div class="tile corners" id="version">
+          <div class="label" style="margin-bottom:8px">Game version</div>
+          <div class="loading">Checking</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+  <script src="js/codex.js"></script>
+  <script src="js/news-data.js"></script>
+  <script>
+    const fmtDate = d => new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    // Hand-written posts
+    const posts = [...NEWS].sort((a, b) => b.date.localeCompare(a.date));
+    if (posts.length) $('#updated').textContent = `Last update: ${fmtDate(posts[0].date)}`;
+    $('#posts').innerHTML = posts.map(p => `
+      <article class="post">
+        <div class="post-date">${fmtDate(p.date)}</div>
+        <h2>${esc(p.title)}</h2>
+        <div class="tags">${(p.tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>
+        <div class="post-body">${p.body}</div>
+      </article>`).join('') || '<p class="muted">No posts yet.</p>';
+
+    // Official patch notes, straight from Valve's Steam news and forum changelog (via the API).
+    // Only plain formatting tags are kept from their HTML.
+    const KEEP = { p: 'p', ul: 'ul', ol: 'ol', li: 'li', b: 'b', strong: 'b', i: 'em', em: 'em', u: 'u', br: 'br', h1: 'h4', h2: 'h4', h3: 'h4', h4: 'h4', a: 'a', blockquote: 'blockquote' };
+    function patchHtml(html) {
+      const tpl = document.createElement('template');
+      tpl.innerHTML = String(html || '');
+      const out = document.createElement('div');
+      (function walk(src, dst) {
+        for (const n of src.childNodes) {
+          if (n.nodeType === 3) { dst.appendChild(document.createTextNode(n.textContent)); continue; }
+          if (n.nodeType !== 1) continue;
+          const tag = n.tagName.toLowerCase();
+          if (['script', 'style', 'img', 'iframe', 'svg', 'video', 'object'].includes(tag)) continue;
+          const keep = KEEP[tag];
+          if (!keep) { walk(n, dst); continue; }
+          const el = document.createElement(keep);
+          if (keep === 'a') {
+            const href = n.getAttribute('href') || '';
+            if (!/^https?:\/\//i.test(href)) { walk(n, dst); continue; }
+            el.href = href; el.target = '_blank'; el.rel = 'noopener';
+          }
+          walk(n, el);
+          if (keep === 'br' || el.textContent.trim()) dst.appendChild(el);
+        }
+      })(tpl.content, out);
+      return out.innerHTML;
+    }
+
+    // Only a short excerpt of each post is shown; the full text stays on Valve's site.
+    function excerpt(html, max = 420) {
+      const tpl = document.createElement('template');
+      tpl.innerHTML = String(html || '').replace(/<br\s*\/?>/gi, ' ').replace(/<\/(p|div|li|h\d)>/gi, ' ');
+      const text = tpl.content.textContent.replace(/\s+/g, ' ').trim();
+      if (text.length <= max) return text;
+      const cut = text.slice(0, max);
+      return cut.slice(0, Math.max(cut.lastIndexOf('. '), cut.lastIndexOf(' '))).trim() + '…';
+    }
+
+    let patchesLoaded = false;
+    async function renderPatches() {
+      if (patchesLoaded) return;
+      patchesLoaded = true;
+      try {
+        const list = (await getJSON('/v2/patches')).slice(0, 12);
+        $('#patches').innerHTML = `<p class="muted" style="margin:0 0 14px;font-size:16px">The last ${list.length} official posts from Valve, newest first. Each shows a short excerpt; the full text is on Steam or the Deadlock forums.</p>` +
+          list.map(p => {
+            const isForum = p.source === 'forum';
+            return `
+          <article class="patch">
+            <div class="patch-head">
+              <span class="post-date">${new Date(p.pub_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} &middot; ${isForum ? 'Forum changelog' : 'Steam news'}</span>
+              <span class="ptitle">${esc(p.title.trim())}</span>
+            </div>
+            <p class="patch-excerpt">${esc(excerpt(p.content))}</p>
+            <p><a class="btn small" href="${esc(p.link)}" target="_blank" rel="noopener">Read the rest on ${isForum ? 'the forums' : 'Steam'} &rarr;</a>
+              ${/Update/i.test(p.title) || /Heroes:|Items:/.test(p.content) ? `<a class="btn small" href="balance.html?patch=${new Date(p.pub_date).toISOString().slice(0, 10)}">Buffs and nerfs</a>` : ''}</p>
+          </article>`; }).join('');
+      } catch (e) { patchesLoaded = false; showError($('#patches'), e); }
+    }
+
+    $$('[data-view]').forEach(b => b.onclick = () => {
+      $$('[data-view]').forEach(x => x.classList.toggle('on', x === b));
+      $('#posts').hidden = b.dataset.view !== 'posts';
+      $('#patches').hidden = b.dataset.view !== 'patches';
+      if (b.dataset.view === 'patches') renderPatches();
+    });
+    const fromHash = () => $(location.hash === '#patches' ? '[data-view=patches]' : '[data-view=posts]').click();
+    window.addEventListener('hashchange', fromHash);
+    if (location.hash === '#patches') fromHash();
+
+    // Live numbers from the last 7 days
+    (async () => {
+      try {
+        const since = Math.floor(Date.now() / 1000) - 7 * 86400;
+        const [heroes, items, hs, is] = await Promise.all([
+          loadHeroes(), loadItems(),
+          getJSON('/v1/analytics/hero-stats?min_unix_timestamp=' + since),
+          getJSON('/v1/analytics/item-stats?min_unix_timestamp=' + since),
+        ]);
+        const hById = Object.fromEntries(heroes.map(h => [h.id, h]));
+        const iById = Object.fromEntries(items.map(i => [i.id, i]));
+        const hrows = hs.filter(r => hById[r.hero_id] && r.matches).map(r => ({ h: hById[r.hero_id], wr: r.wins / r.matches * 100, m: r.matches }));
+        const totalMatches = hrows.reduce((s, r) => s + r.m, 0) / 12;
+        const topWr = [...hrows].sort((a, b) => b.wr - a.wr).slice(0, 3);
+        const topPick = [...hrows].sort((a, b) => b.m - a.m).slice(0, 3);
+        const maxI = Math.max(...is.map(s => s.matches));
+        const topItems = is.filter(s => iById[s.item_id] && !iById[s.item_id].modeOnly && s.matches > maxI * 0.05)
+          .map(s => ({ it: iById[s.item_id], wr: s.wins / s.matches * 100 })).sort((a, b) => b.wr - a.wr).slice(0, 3);
+        const row = (label, items) => `<div class="label" style="margin-top:12px">${label}</div>${items.join('')}`;
+        $('#live').innerHTML = `<div class="label">This week in numbers</div>
+          <p class="muted" style="margin:4px 0 0;font-size:15px">Last 7 days &middot; ${fmtNum(totalMatches)} matches</p>
+          <div class="totals">
+          ${row('Highest win rate', topWr.map(r => `<div class="row"><a href="heroes.html?id=${r.h.id}">${esc(r.h.name)}</a><span>${fmtNum(r.wr, 1)}%</span></div>`))}
+          ${row('Most picked', topPick.map(r => `<div class="row"><a href="heroes.html?id=${r.h.id}">${esc(r.h.name)}</a><span>${fmtNum(r.m / totalMatches * 100, 1)}%</span></div>`))}
+          ${row('Winning items', topItems.map(r => `<div class="row"><span>${esc(r.it.name)}</span><span>${fmtNum(r.wr, 1)}%</span></div>`))}
+          </div>
+          <p style="margin:14px 0 0"><a class="btn small" href="index.html">Full tier list</a></p>`;
+      } catch (e) { showError($('#live'), e); }
+      try {
+        const v = await getJSON('/v1/assets/steam-info');
+        const d = v.version_datetime ? new Date(v.version_datetime).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }) : '';
+        $('#version').innerHTML = `<div class="label" style="margin-bottom:8px">Game version</div>
+          <div class="big-number" style="font-size:32px">${esc(v.client_version)}</div>
+          <p class="muted" style="margin:6px 0 0;font-size:15px">Current Deadlock client build${d ? ', released ' + d : ''}. Hero and item data on this site follow it automatically.</p>`;
+      } catch (e) { $('#version').innerHTML = '<div class="label">Game version</div><p class="muted" style="margin:6px 0 0">Unavailable right now.</p>'; }
+    })();
+  </script>
+</body>
+</html>

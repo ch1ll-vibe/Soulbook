@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Page not found — Soulbook</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0d1a17">
+  <script>
+    // This page is served for any missing address, including nested ones, so point relative links at the site root.
+    // On GitHub Pages the site root is the first path segment (the repository name); elsewhere it is "/".
+    // The stylesheet and script are written from here too, so the browser never requests them from the wrong folder.
+    var root = location.hostname.endsWith('github.io') ? '/' + location.pathname.split('/')[1] + '/' : '/';
+    document.write('<base href="' + root + '">');
+    document.write('<link rel="icon" type="image/svg+xml" href="img/favicon.svg">');
+    document.write('<link rel="stylesheet" href="css/style.css">');
+  </script>
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main class="wrap">
+    <section class="page-hero">
+      <h1>Lost in the Cursed Apple</h1>
+      <p>That page doesn't exist, or it moved. The streets change with every patch.</p>
+    </section>
+    <div class="controls">
+      <a class="btn primary" href="index.html">Back to the meta</a>
+      <a class="btn" href="heroes.html">Heroes</a>
+      <a class="btn" href="items.html">Items</a>
+      <a class="btn" href="builds.html">Workshop</a>
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+  <script>document.write('<script src="js/codex.js"><\/script>');</script>
+</body>
+</html>

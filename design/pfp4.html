@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Deadlock-themed pixel icons v2</title>
+<style>body{background:#333;display:flex;gap:20px;flex-wrap:wrap;padding:20px} canvas.big{width:300px;height:300px;image-rendering:pixelated}</style>
+</head>
+<body>
+<canvas id="a" class="big" width="1024" height="1024"></canvas>
+<canvas id="b" class="big" width="1024" height="1024"></canvas>
+<canvas id="c" class="big" width="1024" height="1024"></canvas>
+<script>
+// Shapes are drawn on a tiny 32x32 canvas, snapped to a 4-colour palette, then scaled up with hard pixel edges.
+const N = 32, BG = [5, 7, 6], WHITE = [243, 243, 243], GOLD = [210, 169, 79], VERD = [86, 168, 147];
+const PAL = [BG, WHITE, GOLD, VERD];
+const css = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+
+function small() { const o = document.createElement('canvas'); o.width = o.height = N; const x = o.getContext('2d'); x.fillStyle = css(BG); x.fillRect(0, 0, N, N); return [o, x]; }
+function circle(x, cx, cy, r, col) { x.fillStyle = css(col); x.beginPath(); x.arc(cx, cy, r, 0, Math.PI * 2); x.fill(); }
+function ellipse(x, cx, cy, rx, ry, rot, col) { x.fillStyle = css(col); x.beginPath(); x.ellipse(cx, cy, rx, ry, rot, 0, Math.PI * 2); x.fill(); }
+function poly(x, pts, col) { x.fillStyle = css(col); x.beginPath(); pts.forEach(([px, py], i) => i ? x.lineTo(px, py) : x.moveTo(px, py)); x.closePath(); x.fill(); }
+function line(x, x1, y1, x2, y2, w, col) { x.strokeStyle = css(col); x.lineWidth = w; x.lineCap = 'butt'; x.beginPath(); x.moveTo(x1, y1); x.lineTo(x2, y2); x.stroke(); }
+
+function snapAndScale(off, id) {
+  const d = off.getContext('2d').getImageData(0, 0, N, N).data;
+  const c = document.getElementById(id), ctx = c.getContext('2d'), px = c.width / N;
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const i = (y * N + x) * 4, p = [d[i], d[i + 1], d[i + 2]];
+    const lum = (p[0] + p[1] + p[2]) / 3, sat = Math.max(...p) - Math.min(...p);
+    // Anti-aliased edges are grey blends: decide them by brightness only, so no colour fringes appear.
+    let best;
+    if (sat < 45) best = lum > 115 ? WHITE : BG;
+    else if (lum < 55) best = BG;
+    else best = (p[0] > p[1]) ? GOLD : VERD;
+    ctx.fillStyle = css(best); ctx.fillRect(x * px, y * px, px, px);
+  }
+}
+
+// A: the Cursed Apple with an occult eye
+{
+  const [o, x] = small();
+  circle(x, 11.5, 19, 9, WHITE); circle(x, 20.5, 19, 9, WHITE);                 // apple body
+  poly(x, [[10, 11], [22, 11], [22, 16], [10, 16]], WHITE);                     // fill between the lobes
+  circle(x, 16, 10.6, 1.6, BG);                                                 // small dip at the top
+  circle(x, 29, 15, 4.2, BG);                                                   // bite out of the right side
+  poly(x, [[15.3, 4], [16.7, 4], [16.6, 11], [15.4, 11]], WHITE);               // stem
+  ellipse(x, 20, 6.8, 3.8, 1.5, -0.6, WHITE);                                   // leaf
+  ellipse(x, 15, 20, 6.8, 3.4, 0, BG);                                          // eye socket
+  circle(x, 15, 20, 2.7, GOLD);                                                 // iris
+  poly(x, [[14.6, 17.4], [15.4, 17.4], [15.4, 22.6], [14.6, 22.6]], BG);        // slit pupil
+  snapAndScale(o, 'a');
+}
+
+// B: a Soul — the glowing wisp with a wicked face
+{
+  const [o, x] = small();
+  circle(x, 16, 19.5, 9.5, WHITE);                                              // body
+  poly(x, [[8.5, 14], [23.5, 14], [21, 6], [17.5, 10], [16, 2], [14, 9.5], [11, 5]], WHITE); // flames
+  // eyes: slanted, menacing
+  poly(x, [[9, 17], [14.5, 19.3], [14.5, 21], [9.5, 19.6]], BG);
+  poly(x, [[23, 17], [17.5, 19.3], [17.5, 21], [22.5, 19.6]], BG);
+  poly(x, [[9.8, 17.6], [14, 19.5], [14, 20.5], [10.2, 19.3]], VERD);
+  poly(x, [[22.2, 17.6], [18, 19.5], [18, 20.5], [21.8, 19.3]], VERD);
+  // jagged grin
+  poly(x, [[10, 24], [22, 24], [21, 26.2], [19, 25], [17.5, 26.5], [16, 25], [14.5, 26.5], [13, 25], [11, 26.2]], BG);
+  // sparks
+  circle(x, 5, 9, 1.1, WHITE); circle(x, 27, 8, 0.9, WHITE); circle(x, 26, 27, 0.9, WHITE);
+  snapAndScale(o, 'b');
+}
+
+// C: the Patron's eye in an art-deco sunburst
+{
+  const [o, x] = small();
+  for (let i = 0; i < 16; i++) { const a = (i / 16) * Math.PI * 2 + Math.PI / 16; line(x, 16 + Math.cos(a) * 9.5, 16 + Math.sin(a) * 9.5, 16 + Math.cos(a) * 15.5, 16 + Math.sin(a) * 15.5, 1.1, WHITE); }
+  // almond: intersection of two circles, drawn as a lens
+  x.fillStyle = css(WHITE); x.beginPath(); x.moveTo(3, 16); x.quadraticCurveTo(16, 4.5, 29, 16); x.quadraticCurveTo(16, 27.5, 3, 16); x.fill();
+  x.fillStyle = css(BG); x.beginPath(); x.moveTo(5, 16); x.quadraticCurveTo(16, 7, 27, 16); x.quadraticCurveTo(16, 25, 5, 16); x.fill();
+  circle(x, 16, 16, 5.2, GOLD);                                                 // iris
+  circle(x, 16, 16, 5.2, GOLD);
+  ellipse(x, 16, 16, 1.4, 4.6, 0, BG);                                          // slit pupil
+  circle(x, 13.8, 13.8, 0.9, WHITE);                                            // glint
+  snapAndScale(o, 'c');
+}
+window.READY = true;
+</script>
+</body>
+</html>

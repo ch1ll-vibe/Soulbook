@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pixel profile picture drafts</title>
+<style>body{background:#333;display:flex;gap:20px;flex-wrap:wrap;padding:20px} canvas{width:300px;height:300px;image-rendering:pixelated}</style>
+</head>
+<body>
+<canvas id="a" width="1000" height="1000"></canvas>
+<canvas id="b" width="1000" height="1000"></canvas>
+<canvas id="c" width="1000" height="1000"></canvas>
+<script>
+// Each face is a 20x20 grid. '.' = background, '#' = white, 'o' = accent colour.
+const GRIN = [
+  '....................',
+  '....................',
+  '....................',
+  '....................',
+  '...##..........##...',
+  '...###........###...',
+  '....###......###....',
+  '.....###....###.....',
+  '......##....##......',
+  '....................',
+  '....................',
+  '....................',
+  '...#............#...',
+  '...##..........##...',
+  '....##.#.##.#.##....',
+  '.....##########.....',
+  '......#.#..#.#......',
+  '....................',
+  '....................',
+  '....................',
+];
+const SMUG = [
+  '....................',
+  '....................',
+  '....................',
+  '....................',
+  '....................',
+  '..####........#####.',
+  '....###.......###...',
+  '......##.....##.....',
+  '....................',
+  '....................',
+  '....................',
+  '....................',
+  '..............#.....',
+  '.......#......##....',
+  '.......##....###....',
+  '........########....',
+  '.........#####......',
+  '....................',
+  '....................',
+  '....................',
+];
+const SHADES = [
+  '....................',
+  '....................',
+  '....................',
+  '....................',
+  '.##################.',
+  '.##ooooo####ooooo##.',
+  '..#ooooo#..#ooooo#..',
+  '..#oooo.#..#oooo.#..',
+  '...#ooo#....#ooo#...',
+  '....###......###....',
+  '....................',
+  '....................',
+  '....................',
+  '...#............#...',
+  '...##..........##...',
+  '....###......###....',
+  '......########......',
+  '....................',
+  '....................',
+  '....................',
+];
+
+function draw(id, grid, { bg = '#000', fg = '#fff', accent = '#fff', frame = null } = {}) {
+  const c = document.getElementById(id), ctx = c.getContext('2d'), n = grid.length, px = 1000 / n;
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, 1000, 1000);
+  grid.forEach((row, y) => [...row].forEach((ch, x) => {
+    if (ch === '.') return;
+    ctx.fillStyle = ch === 'o' ? accent : fg;
+    ctx.fillRect(Math.round(x * px), Math.round(y * px), Math.ceil(px), Math.ceil(px));
+  }));
+  if (frame) { ctx.strokeStyle = frame; ctx.lineWidth = px; ctx.strokeRect(px / 2, px / 2, 1000 - px, 1000 - px); }
+}
+
+draw('a', GRIN);                                                        // pure black and white
+draw('b', GRIN, { bg: '#08110f', fg: '#f0e6cc', frame: '#d2a94f' });     // Soulbook colours: cream face, gold pixel frame
+draw('c', SHADES, { bg: '#000', fg: '#fff', accent: '#56a893' });        // chill face in shades, verdigris lenses
+window.READY = true;
+</script>
+</body>
+</html>

@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Build planner — Soulbook</title>
+  <meta name="description" content="Plan a Deadlock build in stages, see the total stats it gives, and save or share it.">
+  <meta name="theme-color" content="#0d1a17">
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main class="wrap">
+    <section class="page-hero">
+      <h1>The Workshop</h1>
+      <p>Pick a hero, fill each stage of the match with items, and see what the finished build gives you.</p>
+    </section>
+
+    <div class="planner">
+      <div>
+        <div class="step"><div class="num">1</div><div><h2>Hero and name</h2><p>Who is this build for? Each hero keeps its own draft while the site is open, so you can switch between heroes without losing work.</p></div></div>
+        <div class="tile corners">
+          <div class="build-head">
+            <label><span class="label">Build name</span><input type="text" id="build-name" placeholder="Name this build" maxlength="60"></label>
+            <label><span class="label">Hero</span><select id="hero"><option value="">Any hero</option></select></label>
+            <img id="hero-pic" class="build-hero-pic" alt="" hidden>
+          </div>
+        </div>
+
+        <div class="step"><div class="num">2</div><div><h2>Stages</h2><p>Click a shop item below to add it to the selected stage, or drag it in. Drag items between stages to reorder.</p></div></div>
+        <div id="stages"></div>
+        <button class="btn small" id="add-stage">+ Add stage</button>
+
+        <div class="step"><div class="num">3</div><div><h2>Shop</h2><p>Grouped by cost. Right-click an item for its full description.</p></div></div>
+        <div class="shop">
+          <div class="shop-bar">
+            <span id="pick-slots">
+              <button class="btn small on" data-slot="">All</button>
+              <button class="btn small" data-slot="weapon" style="color:var(--weapon)">Weapon</button>
+              <button class="btn small" data-slot="vitality" style="color:var(--vitality)">Vitality</button>
+              <button class="btn small" data-slot="spirit" style="color:var(--spirit)">Spirit</button>
+            </span>
+            <input type="search" id="pick-q" placeholder="Search" aria-label="Search items" style="min-width:140px;width:180px">
+            <span class="spacer"></span>
+            <span class="label">Add to</span>
+            <select id="pick-stage" aria-label="Stage to add to"></select>
+          </div>
+          <div class="shop-body" id="picker"><div class="loading">Opening the shop</div></div>
+        </div>
+      </div>
+
+      <div class="summary">
+        <div class="frame"><div class="tile" style="border:0">
+          <div class="label">Total cost</div>
+          <div class="big-number" id="total-cost">0</div>
+          <div class="muted caps" id="total-count" style="font-size:12px">0 items</div>
+
+          <div class="label" style="margin-top:18px">Build gives you</div>
+          <div class="totals" id="totals"></div>
+          <p class="muted" style="font-size:14px;margin:10px 0 0">Flat bonuses are added together. Items that are pure effects count as "special" and are not summed.</p>
+
+          <div class="actions">
+            <button class="btn primary" id="save">Save</button>
+            <button class="btn" id="share">Share link</button>
+            <button class="btn" id="copy">Copy list</button>
+            <button class="btn danger" id="clear">Clear</button>
+          </div>
+        </div></div>
+        <div class="tile corners" style="margin-top:22px">
+          <div class="label" style="margin-bottom:6px">Saved builds</div>
+          <div class="saved-list" id="saved"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer id="site-footer"></footer>
+  <script src="js/codex.js"></script>
+  <script>
+    const DEFAULT_STAGES = ['Lane', 'Mid game', 'Late game', 'Situational'];
+    let items = [], heroes = [], byId = {};
+    let build = { name: 'My build', hero: 0, stages: [] };
+    let pickSlot = '';
+
+    // ---------- Per-hero drafts ----------
+    // Each hero keeps its own work-in-progress build for as long as the site stays open in this tab.
+    const DRAFT_KEY = 'codex:drafts';
+    function drafts() { try { return JSON.parse(sessionStorage.getItem(DRAFT_KEY) || '{}'); } catch { return {}; } }
+    function saveDraft() {
+      try {
+        const all = drafts();
+        all[build.hero || 0] = { name: build.name, stages: build.stages };
+        sessionStorage.setItem(DRAFT_KEY, JSON.stringify(all));
+      } catch { /* storage blocked */ }
+    }
+    function freshStages() { return DEFAULT_STAGES.map(n => ({ name: n, items: [] })); }
+    function defaultName(heroId) { const h = heroes.find(x => x.id === heroId); return h ? `${h.name} build` : 'My build'; }
+    function switchHero(heroId) {
+      saveDraft();
+      const d = drafts()[heroId || 0];
+      build = d
+        ? { name: d.name, hero: heroId, stages: d.stages.map(s => ({ name: s.name, items: s.items.filter(id => byId[id]) })) }
+        : { name: defaultName(heroId), hero: heroId, stages: freshStages() };
+      renderHead(); render(); renderPicker();
+      toast(d ? `Back to your ${defaultName(heroId)}` : `New build for ${heroId ? defaultName(heroId).replace(' build', '') : 'any hero'}`);
+    }
+
+    // ---------- Rendering ----------
+    function renderHead() {
+      $('#build-name').value = build.name;
+      $('#hero').value = build.hero || '';
+      const h = heroes.find(x => x.id === build.hero);
+      const pic = $('#hero-pic');
+      pic.hidden = !h;
+      if (h) pic.src = h.small;
+    }
+
+    function render() {
+      $('#stages').innerHTML = build.stages.map((st, si) => `
+        <div class="stage">
+          <div class="stage-head">
+            <input value="${esc(st.name)}" data-stage="${si}" aria-label="Stage name" maxlength="30">
+            <span class="cost">${fmtNum(st.items.reduce((s, id) => s + byId[id].cost, 0))} souls &middot; ${st.items.length} item${st.items.length === 1 ? '' : 's'}</span>
+            <button class="btn small danger" data-remove-stage="${si}" ${build.stages.length <= 1 ? 'disabled' : ''}>Remove stage</button>
+          </div>
+          <div class="stage-items" data-drop="${si}">
+            ${st.items.map((id, ii) => { const it = byId[id]; return `
+              <span class="slot-pill slot-${it.slot}" draggable="true" data-drag="${si}:${ii}" title="${esc(it.name)}">
+                <img src="${esc(it.img)}" alt="">${esc(it.name)}
+                <span class="ctl">
+                  <button data-move="${si}:${ii}:-1" aria-label="Move left" ${ii === 0 ? 'disabled' : ''}>&lsaquo;</button>
+                  <button data-move="${si}:${ii}:1" aria-label="Move right" ${ii === st.items.length - 1 ? 'disabled' : ''}>&rsaquo;</button>
+                  <button class="del" data-del="${si}:${ii}" aria-label="Remove">&times;</button>
+                </span>
+              </span>`; }).join('') || '<span class="empty">Empty. Add items from the shop below.</span>'}
+          </div>
+        </div>`).join('');
+      const sel = $('#pick-stage'), prev = sel.value;
+      sel.innerHTML = build.stages.map((st, i) => `<option value="${i}">${esc(st.name)}</option>`).join('');
+      if (prev && build.stages[+prev]) sel.value = prev;
+
+      $$('[data-stage]').forEach(inp => inp.onchange = () => { build.stages[+inp.dataset.stage].name = inp.value || 'Stage'; render(); });
+      $$('[data-remove-stage]').forEach(b => b.onclick = () => {
+        const st = build.stages[+b.dataset.removeStage];
+        if (st.items.length && !confirm(`Remove "${st.name}" and its ${st.items.length} item${st.items.length === 1 ? '' : 's'}?`)) return;
+        build.stages.splice(+b.dataset.removeStage, 1); render(); renderPicker();
+      });
+      $$('[data-del]').forEach(b => b.onclick = () => { const [s, i] = b.dataset.del.split(':').map(Number); build.stages[s].items.splice(i, 1); render(); renderPicker(); });
+      $$('[data-move]').forEach(b => b.onclick = () => {
+        const [s, i, d] = b.dataset.move.split(':').map(Number);
+        const arr = build.stages[s].items; [arr[i], arr[i + d]] = [arr[i + d], arr[i]]; render();
+      });
+      $$('[data-drag]').forEach(el => el.ondragstart = e => e.dataTransfer.setData('text/plain', 'move:' + el.dataset.drag));
+      $$('[data-drop]').forEach(zone => {
+        zone.ondragover = e => { e.preventDefault(); zone.classList.add('target'); };
+        zone.ondragleave = () => zone.classList.remove('target');
+        zone.ondrop = e => {
+          e.preventDefault(); zone.classList.remove('target');
+          const data = e.dataTransfer.getData('text/plain'); const to = +zone.dataset.drop;
+          if (data.startsWith('move:')) {
+            const [s, i] = data.slice(5).split(':').map(Number);
+            const [id] = build.stages[s].items.splice(i, 1); build.stages[to].items.push(id);
+          } else if (data.startsWith('item:')) addItem(+data.slice(5), to);
+          render(); renderPicker();
+        };
+      });
+      renderTotals();
+      saveDraft();
+    }
+
+    function addItem(id, stageIndex) {
+      const it = byId[id]; if (!it) return;
+      if (build.stages.flatMap(s => s.items).includes(id)) { toast(`${it.name} is already in the build`); return; }
+      build.stages[stageIndex].items.push(id);
+      toast(`${it.name} added to ${build.stages[stageIndex].name}`);
+    }
+
+    function renderTotals() {
+      const its = build.stages.flatMap(s => s.items).map(id => byId[id]);
+      $('#total-cost').textContent = fmtNum(its.reduce((s, i) => s + i.cost, 0));
+      $('#total-count').textContent = `${its.length} item${its.length === 1 ? '' : 's'}`;
+      const sum = {}; let special = 0;
+      for (const it of its) {
+        if (!it.stats.length) special++;
+        for (const s of it.stats) {
+          const k = s.label + '|' + s.postfix;
+          sum[k] = sum[k] || { label: s.label, postfix: s.postfix, value: 0 };
+          sum[k].value += s.value;
+        }
+      }
+      const rows = Object.values(sum).sort((a, b) => a.label.localeCompare(b.label));
+      $('#totals').innerHTML = rows.map(r => `<div class="row"><span>${esc(r.label)}</span><span>${r.value > 0 ? '+' : ''}${fmtNum(r.value, r.value % 1 ? 1 : 0)}${esc(r.postfix)}</span></div>`).join('')
+        + (special ? `<div class="row"><span>Special effects</span><span>${special} item${special === 1 ? '' : 's'}</span></div>` : '')
+        || '<p class="muted" style="margin:6px 0;font-size:15px">Add items to see their combined stats.</p>';
+    }
+
+    function renderPicker() {
+      const q = $('#pick-q').value.trim().toLowerCase();
+      const inBuild = new Set(build.stages.flatMap(s => s.items));
+      const list = items.filter(i => (!pickSlot || i.slot === pickSlot) && (!q || i.name.toLowerCase().includes(q) || i.stats.some(s => s.label.toLowerCase().includes(q))));
+      const tiers = [...new Set(list.map(i => i.tier))].sort();
+      $('#picker').innerHTML = tiers.map(t => {
+        const g = list.filter(i => i.tier === t);
+        return `<h5>${g[0].modeOnly ? 'Special modes only (Street Brawl and similar)' : fmtNum(g[0].cost) + ' souls'}</h5><div class="picker">${g.map(i => itemCardHtml(i, inBuild.has(i.id) ? '<div class="caps green" style="font-size:11px">In build</div>' : '').replace('class="item-card', inBuild.has(i.id) ? 'class="item-card in' : 'class="item-card')).join('')}</div>`;
+      }).join('') || '<p class="muted">No items match.</p>';
+      $$('#picker .item-card').forEach(b => {
+        b.draggable = true;
+        b.ondragstart = e => e.dataTransfer.setData('text/plain', 'item:' + b.dataset.id);
+        b.onclick = () => { addItem(+b.dataset.id, +$('#pick-stage').value); render(); renderPicker(); };
+        b.oncontextmenu = e => { e.preventDefault(); openModal(itemDetailHtml(byId[b.dataset.id])); };
+      });
+    }
+
+    // ---------- Saving ----------
+    function savedBuilds() { try { return JSON.parse(localStorage.getItem('codex:builds') || '[]'); } catch { return []; } }
+    function renderSaved() {
+      const list = savedBuilds();
+      $('#saved').innerHTML = list.map((b, i) => {
+        const hero = heroes.find(h => h.id === b.hero);
+        return `<div class="row"><a href="?b=${encodeBuild(b)}">${esc(b.name)}</a><span class="muted" style="font-size:14px;flex:1;text-align:right">${hero ? esc(hero.name) : 'Any hero'}</span><button class="btn small danger" data-unsave="${i}">&times;</button></div>`;
+      }).join('') || '<p class="muted" style="margin:6px 0;font-size:15px">Nothing saved yet.</p>';
+      $$('[data-unsave]').forEach(b => b.onclick = () => {
+        const l = savedBuilds();
+        if (!confirm(`Delete the saved build "${l[+b.dataset.unsave].name}"?`)) return;
+        l.splice(+b.dataset.unsave, 1); localStorage.setItem('codex:builds', JSON.stringify(l)); renderSaved();
+      });
+    }
+
+    function textList() {
+      const hero = heroes.find(h => h.id === build.hero);
+      return [`${build.name}${hero ? ' — ' + hero.name : ''}`, ...build.stages.filter(s => s.items.length).flatMap(s => [``, s.name.toUpperCase(), ...s.items.map(id => `  - ${byId[id].name} (${fmtNum(byId[id].cost)})`)])].join('\n');
+    }
+
+    (async () => {
+      try { [items, heroes] = await Promise.all([loadItems(), loadHeroes()]); } catch (e) { showError($('#stages'), e); return; }
+      byId = Object.fromEntries(items.map(i => [i.id, i]));
+      $('#hero').innerHTML += heroes.map(h => `<option value="${h.id}">${esc(h.name)}</option>`).join('');
+
+      const params = new URLSearchParams(location.search);
+      const shared = params.get('b') && decodeBuild(params.get('b'), byId);
+      const heroParam = +params.get('hero') || 0;
+      if (shared) {
+        build = shared;
+      } else {
+        // Pick up where this hero's draft left off, if there is one.
+        const d = drafts()[heroParam];
+        if (d) build = { name: d.name, hero: heroParam, stages: d.stages.map(s => ({ name: s.name, items: s.items.filter(id => byId[id]) })) };
+        else build = { name: defaultName(heroParam), hero: heroParam, stages: freshStages() };
+      }
+      if (params.get('add') && byId[+params.get('add')]) addItem(+params.get('add'), 0);
+
+      $('#build-name').oninput = e => { build.name = e.target.value; saveDraft(); };
+      $('#hero').onchange = e => switchHero(+e.target.value);
+      $('#add-stage').onclick = () => { if (build.stages.length < 8) { build.stages.push({ name: 'New stage', items: [] }); render(); } };
+      $('#clear').onclick = () => {
+        if (!build.stages.some(s => s.items.length)) return;
+        if (confirm('Remove every item from this build?')) { build.stages.forEach(s => s.items = []); render(); renderPicker(); toast('Build cleared'); }
+      };
+      $('#save').onclick = () => {
+        const list = savedBuilds().filter(b => b.name !== build.name);
+        list.unshift(JSON.parse(JSON.stringify(build)));
+        localStorage.setItem('codex:builds', JSON.stringify(list.slice(0, 30)));
+        renderSaved(); toast('Build saved');
+      };
+      $('#share').onclick = async () => {
+        const url = location.origin + location.pathname + '?b=' + encodeBuild(build);
+        history.replaceState(null, '', url);
+        try { await navigator.clipboard.writeText(url); toast('Link copied'); } catch { prompt('Copy this link', url); }
+      };
+      $('#copy').onclick = async () => {
+        try { await navigator.clipboard.writeText(textList()); toast('Item list copied'); } catch { prompt('Copy this list', textList()); }
+      };
+      $$('#pick-slots .btn').forEach(b => b.onclick = () => { pickSlot = b.dataset.slot; $$('#pick-slots .btn').forEach(x => x.classList.toggle('on', x === b)); renderPicker(); });
+      $('#pick-q').oninput = renderPicker;
+
+      renderHead(); render(); renderPicker(); renderSaved();
+    })();
+  </script>
+</body>
+</html>

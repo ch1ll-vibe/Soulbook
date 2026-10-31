@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Balance — Soulbook</title>
+  <meta name="description" content="Every hero and item buff, nerf and rework in each Deadlock patch, with a verdict and what it means for the game.">
+  <meta name="theme-color" content="#0d1a17">
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main class="wrap">
+    <section class="page-hero">
+      <h1>The Ledger</h1>
+      <p>Who got stronger, who got weaker, and what it means. Changes come straight from Valve's patch notes; the verdicts are ours.</p>
+    </section>
+
+    <div class="controls">
+      <label class="label" for="patch">Patch</label>
+      <select id="patch"><option>Loading patches</option></select>
+    </div>
+
+    <div id="summary"></div>
+
+    <div class="controls" id="filters">
+      <button class="btn on" data-v="">All changes</button>
+      <button class="btn v-buff" data-v="buff">Buffs</button>
+      <button class="btn v-nerf" data-v="nerf">Nerfs</button>
+      <button class="btn v-rework" data-v="rework">Reworks</button>
+      <button class="btn v-mixed" data-v="mixed">Mixed</button>
+    </div>
+
+    <div class="divider"><span>Heroes</span></div>
+    <div id="heroes" class="grid cols-2x"><div class="loading">Reading the notes</div></div>
+
+    <div class="divider"><span>Items</span></div>
+    <div id="items" class="grid cols-2x"></div>
+
+    <div class="divider"><span>Everything else</span></div>
+    <div id="general" class="tile"></div>
+  </main>
+
+  <footer id="site-footer"></footer>
+  <script src="js/codex.js"></script>
+  <script src="js/balance-data.js"></script>
+  <script>
+    const VERDICT = { buff: 'Buff', nerf: 'Nerf', rework: 'Rework', mixed: 'Mixed', fix: 'Fix' };
+    let heroes = [], items = [], patches = [], current = null, filter = '';
+
+    // ---------- Turn Valve's HTML into plain lines ----------
+    function toLines(html) {
+      const tpl = document.createElement('template');
+      tpl.innerHTML = String(html || '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|li|h\d|tr)>/gi, '\n').replace(/<li[^>]*>/gi, '- ');
+      return tpl.content.textContent.split('\n').map(s => s.trim()).filter(Boolean);
+    }
+
+    // Sections look like "Heroes:" / "Items:" / "General:" / "Street Brawl:"; changes look like "- Name: text".
+    function parsePatch(p) {
+      const out = { heroes: {}, items: {}, general: [], brawl: [] };
+      let section = '';
+      for (const line of toLines(p.content)) {
+        const head = line.match(/^([A-Za-z &]+):$/);
+        if (head) { section = head[1].toLowerCase(); continue; }
+        const m = line.match(/^-\s*(.+?)\s*:\s*(.+)$/);
+        if (!m) { if (section === 'general' && line.startsWith('-')) out.general.push(line.replace(/^-\s*/, '')); continue; }
+        const [, name, text] = m;
+        if (section === 'heroes') {
+          const h = matchHero(name);
+          const key = h ? h.name : name;
+          (out.heroes[key] = out.heroes[key] || { hero: h, changes: [] }).changes.push(text);
+        } else if (section === 'items') {
+          const it = matchItem(name);
+          const key = it ? it.name : name;
+          (out.items[key] = out.items[key] || { item: it, changes: [] }).changes.push(text);
+        } else if (section === 'street brawl') {
+          out.brawl.push(`${name}: ${text}`);
+        } else if (section === 'general' || !section) {
+          out.general.push(`${name}: ${text}`);
+        }
+      }
+      return out;
+    }
+    function matchHero(name) {
+      const n = name.toLowerCase().replace(/^the\s+/, '');
+      return heroes.find(h => h.name.toLowerCase() === n)
+        || heroes.find(h => h.name.toLowerCase().replace(/^the\s+/, '') === n)
+        || heroes.find(h => h.name.toLowerCase().startsWith(n) || n.startsWith(h.name.toLowerCase()));
+    }
+    function matchItem(name) {
+      const n = name.toLowerCase().replace(/[’']/g, "'");
+      return items.find(i => i.name.toLowerCase().replace(/[’']/g, "'") === n);
+    }
+
+    // ---------- Rendering ----------
+    function dateKey(p) { return new Date(p.pub_date).toISOString().slice(0, 10); }
+
+    function entryHtml(name, data, img, hand, link) {
+      const v = hand?.verdict || '';
+      return `<div class="change v-${v || 'none'}" data-v="${v}">
+        <div class="change-head">
+          ${img ? `<img src="${esc(img)}" alt="">` : '<span class="noimg"></span>'}
+          <div style="flex:1;min-width:0">
+            <div class="change-name">${link ? `<a href="${link}">${esc(name)}</a>` : esc(name)} ${v ? `<span class="verdict v-${v}">${VERDICT[v]}</span>` : ''}</div>
+            ${hand?.note ? `<div class="change-note">${esc(hand.note)}</div>` : '<div class="change-note muted">No verdict written for this one yet.</div>'}
+          </div>
+        </div>
+        <details><summary>${data.changes.length} change${data.changes.length === 1 ? '' : 's'} in the notes</summary>
+          <ul>${data.changes.map(c => `<li>${esc(c)}</li>`).join('')}</ul></details>
+      </div>`;
+    }
+
+    function render() {
+      if (!current) return;
+      const parsed = parsePatch(current);
+      const hand = BALANCE[dateKey(current)] || { heroes: {}, items: {} };
+      const count = v => [...Object.keys(parsed.heroes), ...Object.keys(parsed.items)].filter(k => (hand.heroes[k] || hand.items[k])?.verdict === v).length;
+      $('#summary').innerHTML = `<div class="frame"><div class="tile" style="border:0">
+        <div class="label">${esc(current.title.trim())} &middot; ${new Date(current.pub_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+        <p style="margin:8px 0 14px;font-size:19px">${hand.summary ? esc(hand.summary) : '<span class="muted">No summary written for this patch yet. The changes below are still pulled from the official notes.</span>'}</p>
+        <div class="verdict-row">
+          <div class="v-buff"><b>${count('buff')}</b>buffs</div>
+          <div class="v-nerf"><b>${count('nerf')}</b>nerfs</div>
+          <div class="v-rework"><b>${count('rework')}</b>reworks</div>
+          <div class="v-mixed"><b>${count('mixed')}</b>mixed</div>
+          <div class="v-none"><b>${Object.keys(parsed.heroes).length}</b>heroes touched</div>
+          <div class="v-none"><b>${Object.keys(parsed.items).length}</b>items touched</div>
+        </div>
+        <p class="muted" style="margin:12px 0 0;font-size:15px">Full official text: <a href="${esc(current.link)}" target="_blank" rel="noopener">${esc(current.title.trim())}</a></p>
+      </div></div>`;
+
+      const order = { nerf: 0, buff: 1, rework: 2, mixed: 3, fix: 4, '': 5 };
+      const sortKeys = (obj, handMap) => Object.keys(obj).sort((a, b) => (order[handMap[a]?.verdict || ''] - order[handMap[b]?.verdict || '']) || a.localeCompare(b));
+      const show = v => !filter || v === filter;
+
+      const hk = sortKeys(parsed.heroes, hand.heroes).filter(k => show(hand.heroes[k]?.verdict || ''));
+      $('#heroes').innerHTML = hk.map(k => { const d = parsed.heroes[k]; return entryHtml(k, d, d.hero?.small, hand.heroes[k], d.hero ? `heroes.html?id=${d.hero.id}` : ''); }).join('')
+        || '<p class="muted" style="grid-column:1/-1;text-align:center">No hero changes match this filter.</p>';
+      const ik = sortKeys(parsed.items, hand.items).filter(k => show(hand.items[k]?.verdict || ''));
+      $('#items').innerHTML = ik.map(k => { const d = parsed.items[k]; return entryHtml(k, d, d.item?.img, hand.items[k], ''); }).join('')
+        || '<p class="muted" style="grid-column:1/-1;text-align:center">No item changes match this filter.</p>';
+      $$('#items .change-name a').forEach(a => a.onclick = e => { e.preventDefault(); });
+
+      $('#general').innerHTML = (parsed.general.length || parsed.brawl.length) ? `
+        ${parsed.general.length ? `<div class="label" style="margin-bottom:6px">General and map</div><ul class="plain">${parsed.general.map(g => `<li>${esc(g)}</li>`).join('')}</ul>` : ''}
+        ${parsed.brawl.length ? `<div class="label" style="margin:14px 0 6px">Street Brawl only</div><ul class="plain">${parsed.brawl.map(g => `<li>${esc(g)}</li>`).join('')}</ul>` : ''}`
+        : '<p class="muted" style="margin:0">No general changes in this patch.</p>';
+    }
+
+    (async () => {
+      try {
+        [heroes, items] = await Promise.all([loadHeroes(), loadItems()]);
+        const all = await getJSON('/v2/patches');
+        // Only patches that actually contain balance sections.
+        patches = all.filter(p => /(^|\n)(Heroes|Items):\s*$/m.test(toLines(p.content).join('\n')));
+      } catch (e) { showError($('#heroes'), e); return; }
+      if (!patches.length) { $('#heroes').innerHTML = '<p class="muted">No balance patches found in the feed.</p>'; return; }
+      const sel = $('#patch');
+      sel.innerHTML = patches.map((p, i) => `<option value="${i}">${new Date(p.pub_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} &middot; ${esc(p.title.trim())}</option>`).join('');
+      sel.onchange = () => { current = patches[+sel.value]; render(); };
+      $$('#filters .btn').forEach(b => b.onclick = () => { filter = b.dataset.v; $$('#filters .btn').forEach(x => x.classList.toggle('on', x === b)); render(); });
+      const wanted = new URLSearchParams(location.search).get('patch');
+      const idx = Math.max(0, patches.findIndex(p => dateKey(p) === wanted));
+      sel.value = idx; current = patches[idx]; render();
+    })();
+  </script>
+</body>
+</html>

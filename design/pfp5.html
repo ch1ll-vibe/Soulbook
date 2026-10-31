@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Art-deco symbol badges</title>
+<style>body{background:#222;display:flex;gap:20px;flex-wrap:wrap;padding:20px} canvas{width:300px;height:300px;border-radius:50%;background:#000}</style>
+</head>
+<body>
+<canvas id="a" width="1000" height="1000"></canvas>
+<canvas id="b" width="1000" height="1000"></canvas>
+<canvas id="c" width="1000" height="1000"></canvas>
+<script>
+const BG = '#0d1a17', DEEP = '#08110f', GOLD = '#d2a94f', GOLD2 = '#8f7436', VERD = '#56a893', INK = '#f0e6cc';
+const S = 1000, C = S / 2;
+
+function base(ctx) {
+  ctx.fillStyle = BG; ctx.fillRect(0, 0, S, S);
+  const g = ctx.createRadialGradient(C, 220, 50, C, 320, 720);
+  g.addColorStop(0, 'rgba(86,168,147,0.22)'); g.addColorStop(1, 'rgba(86,168,147,0)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, S, S);
+  ctx.save(); ctx.globalAlpha = 0.08; ctx.strokeStyle = GOLD; ctx.lineWidth = 2;
+  for (let i = -S; i < S * 2; i += 46) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + S, S); ctx.stroke(); ctx.beginPath(); ctx.moveTo(i, S); ctx.lineTo(i + S, 0); ctx.stroke(); }
+  ctx.restore();
+  ctx.lineWidth = 10; ctx.strokeStyle = GOLD; ctx.beginPath(); ctx.arc(C, C, 455, 0, Math.PI * 2); ctx.stroke();
+  ctx.lineWidth = 3; ctx.strokeStyle = GOLD2; ctx.beginPath(); ctx.arc(C, C, 430, 0, Math.PI * 2); ctx.stroke();
+}
+function diamond(ctx, r, w, color) { ctx.save(); ctx.translate(C, C); ctx.rotate(Math.PI / 4); ctx.lineWidth = w; ctx.strokeStyle = color; ctx.strokeRect(-r, -r, r * 2, r * 2); ctx.restore(); }
+function rays(ctx, n, inner, outer, w, color, alpha, offset = 0) {
+  ctx.save(); ctx.translate(C, C); ctx.strokeStyle = color; ctx.lineWidth = w; ctx.globalAlpha = alpha; ctx.lineCap = 'round';
+  for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2 + offset; ctx.beginPath(); ctx.moveTo(Math.cos(a) * inner, Math.sin(a) * inner); ctx.lineTo(Math.cos(a) * outer, Math.sin(a) * outer); ctx.stroke(); }
+  ctx.restore();
+}
+function glow(ctx, x, y, r, color) { const g = ctx.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, color); g.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2); }
+
+// A: the Cursed Apple, in gold line art, with a verdigris occult eye
+{
+  const ctx = document.getElementById('a').getContext('2d'); base(ctx);
+  diamond(ctx, 330, 7, GOLD); diamond(ctx, 300, 3, GOLD2);
+  ctx.save(); ctx.translate(C, C + 40);
+  // apple body: two lobes
+  ctx.fillStyle = DEEP; ctx.strokeStyle = GOLD; ctx.lineWidth = 16; ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(0, -150);
+  ctx.bezierCurveTo(-60, -230, -230, -200, -220, -40);
+  ctx.bezierCurveTo(-212, 90, -120, 200, -40, 185);
+  ctx.quadraticCurveTo(0, 175, 40, 185);
+  ctx.bezierCurveTo(120, 200, 212, 90, 220, -40);
+  ctx.bezierCurveTo(230, -200, 60, -230, 0, -150);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  // bite
+  ctx.fillStyle = BG; ctx.beginPath(); ctx.arc(205, -70, 78, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = GOLD; ctx.lineWidth = 16; ctx.beginPath(); ctx.arc(205, -70, 78, Math.PI * 0.62, Math.PI * 1.55); ctx.stroke();
+  // stem and leaf
+  ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, -150); ctx.quadraticCurveTo(10, -220, 30, -265); ctx.stroke();
+  ctx.fillStyle = VERD; ctx.beginPath(); ctx.ellipse(85, -235, 78, 26, -0.5, 0, Math.PI * 2); ctx.fill();
+  // eye
+  glow(ctx, 0, 10, 150, 'rgba(86,168,147,0.35)');
+  ctx.fillStyle = BG; ctx.strokeStyle = GOLD; ctx.lineWidth = 10;
+  ctx.beginPath(); ctx.moveTo(-130, 10); ctx.quadraticCurveTo(0, -95, 130, 10); ctx.quadraticCurveTo(0, 115, -130, 10); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = VERD; ctx.beginPath(); ctx.arc(0, 10, 48, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = DEEP; ctx.beginPath(); ctx.ellipse(0, 10, 12, 40, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+// B: the Patron's eye in a gold sunburst
+{
+  const ctx = document.getElementById('b').getContext('2d'); base(ctx);
+  rays(ctx, 24, 230, 400, 6, GOLD2, 0.9, Math.PI / 24);
+  rays(ctx, 12, 230, 420, 10, GOLD, 1);
+  ctx.fillStyle = DEEP; ctx.beginPath(); ctx.arc(C, C, 232, 0, Math.PI * 2); ctx.fill();
+  ctx.lineWidth = 8; ctx.strokeStyle = GOLD; ctx.beginPath(); ctx.arc(C, C, 232, 0, Math.PI * 2); ctx.stroke();
+  glow(ctx, C, C, 190, 'rgba(86,168,147,0.35)');
+  ctx.fillStyle = INK; ctx.strokeStyle = GOLD; ctx.lineWidth = 10;
+  ctx.beginPath(); ctx.moveTo(C - 190, C); ctx.quadraticCurveTo(C, C - 150, C + 190, C); ctx.quadraticCurveTo(C, C + 150, C - 190, C); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = VERD; ctx.beginPath(); ctx.arc(C, C, 70, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = GOLD; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(C, C, 70, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = DEEP; ctx.beginPath(); ctx.ellipse(C, C, 18, 58, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = INK; ctx.beginPath(); ctx.arc(C - 28, C - 30, 10, 0, Math.PI * 2); ctx.fill();
+}
+
+// C: a Soul flame rising inside the diamond
+{
+  const ctx = document.getElementById('c').getContext('2d'); base(ctx);
+  diamond(ctx, 330, 7, GOLD); diamond(ctx, 300, 3, GOLD2);
+  glow(ctx, C, C + 40, 230, 'rgba(86,168,147,0.4)');
+  ctx.save(); ctx.translate(C, C + 30);
+  const flame = (scale, fill) => {
+    ctx.save(); ctx.scale(scale, scale); ctx.fillStyle = fill;
+    ctx.beginPath();
+    ctx.moveTo(0, -250);
+    ctx.bezierCurveTo(40, -170, 150, -150, 150, -20);
+    ctx.bezierCurveTo(150, 90, 80, 170, 0, 190);
+    ctx.bezierCurveTo(-80, 170, -150, 90, -150, -20);
+    ctx.bezierCurveTo(-150, -110, -60, -140, -30, -200);
+    ctx.bezierCurveTo(-20, -170, 0, -150, 10, -120);
+    ctx.bezierCurveTo(20, -170, -10, -210, 0, -250);
+    ctx.closePath(); ctx.fill(); ctx.restore();
+  };
+  flame(1, GOLD); flame(0.72, DEEP); flame(0.5, VERD); flame(0.28, INK);
+  ctx.restore();
+}
+window.READY = true;
+</script>
+</body>
+</html>

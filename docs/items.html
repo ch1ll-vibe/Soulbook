@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Items — Soulbook</title>
+  <meta name="description" content="Every Deadlock shop item by cost and type, plus an item tier list from real matches.">
+  <meta name="theme-color" content="#0d1a17">
+  <link rel="icon" type="image/svg+xml" href="img/favicon.svg">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header id="site-header"></header>
+
+  <main class="wrap">
+    <section class="page-hero">
+      <h1>The Armoury</h1>
+      <p>Every item in the shop, sorted by cost and type. Or see which items are winning right now.</p>
+    </section>
+
+    <div class="tabs">
+      <button class="btn on" data-view="shop">Shop</button>
+      <button class="btn" data-view="tiers">Item tier list</button>
+    </div>
+
+    <section id="view-shop">
+      <div class="controls" id="slot-filters">
+        <button class="btn on" data-slot="">All types</button>
+        <button class="btn" data-slot="weapon" style="color:var(--weapon)">Weapon</button>
+        <button class="btn" data-slot="vitality" style="color:var(--vitality)">Vitality</button>
+        <button class="btn" data-slot="spirit" style="color:var(--spirit)">Spirit</button>
+        <select id="tier" aria-label="Cost tier">
+          <option value="">All costs</option>
+          <option value="1">800 souls</option><option value="2">1,600 souls</option><option value="3">3,200 souls</option>
+          <option value="4">6,400 souls</option><option value="5">Special modes only</option>
+        </select>
+        <select id="kind" aria-label="Active or passive">
+          <option value="">Active and passive</option>
+          <option value="active">Active only</option>
+          <option value="passive">Passive only</option>
+        </select>
+        <input type="search" id="q" placeholder="Search items or stats" aria-label="Search items">
+      </div>
+      <div id="list"><div class="loading">Unlocking the vault</div></div>
+    </section>
+
+    <section id="view-tiers" hidden>
+      <div class="controls">
+        <label class="label" for="period">Period</label>
+        <select id="period">
+          <option value="7">Last 7 days</option>
+          <option value="14" selected>Last 14 days</option>
+          <option value="30">Last 30 days</option>
+        </select>
+        <button class="btn on" data-tslot="">All types</button>
+        <button class="btn" data-tslot="weapon" style="color:var(--weapon)">Weapon</button>
+        <button class="btn" data-tslot="vitality" style="color:var(--vitality)">Vitality</button>
+        <button class="btn" data-tslot="spirit" style="color:var(--spirit)">Spirit</button>
+      </div>
+      <p class="muted" style="text-align:center;margin-top:-6px">Ranked by win rate of matches where the item was bought. Rarely bought items are left out.</p>
+      <div class="frame"><div class="tile" style="border:0" id="item-tiers"><div class="loading">Counting souls</div></div></div>
+    </section>
+  </main>
+
+  <footer id="site-footer"></footer>
+  <script src="js/codex.js"></script>
+  <script>
+    let items = [], slot = '', tslot = '', tierStats = null;
+
+    function openItem(id) {
+      const it = items.find(i => i.id === id);
+      openModal(itemDetailHtml(it) + `<p style="margin-top:18px"><a class="btn primary" href="builds.html?add=${it.id}">Add to a build</a></p>`);
+    }
+
+    function renderShop() {
+      const tier = $('#tier').value, kind = $('#kind').value, q = $('#q').value.trim().toLowerCase();
+      const list = items.filter(i =>
+        (!slot || i.slot === slot) &&
+        (!tier || i.tier === +tier) &&
+        (!kind || (kind === 'active') === i.active) &&
+        (!q || i.name.toLowerCase().includes(q) || i.stats.some(s => s.label.toLowerCase().includes(q))));
+      const tiers = [...new Set(list.map(i => i.tier))].sort();
+      $('#list').innerHTML = tiers.map(t => {
+        const group = list.filter(i => i.tier === t);
+        const slots = slot ? [slot] : SLOT_ORDER;
+        const mode = group[0].modeOnly;
+        return `<section class="tier-block">
+          <h3>${mode ? '<span class="cost-pill" style="background:var(--danger)">Mode only</span> special match types' : `<span class="cost-pill">${fmtNum(group[0].cost)}</span> souls`} <span class="count">${group.length} items</span></h3>
+          ${mode ? '<p class="muted" style="margin:-6px 0 14px">These items are not in the normal shop. They only appear in special match types such as Street Brawl.</p>' : ''}
+          <div class="slot-cols ${slot ? 'single' : ''}">
+            ${slots.map(s => { const g = group.filter(i => i.slot === s); return `
+              <div class="slot-col slot-${s}"><h4>${s} <span>${g.length}</span></h4>
+                <div class="cards">${g.map(i => itemCardHtml(i)).join('') || '<p class="muted" style="margin:0;font-size:15px">None at this cost.</p>'}</div>
+              </div>`; }).join('')}
+          </div></section>`;
+      }).join('') || '<p class="muted" style="text-align:center">No items match those filters.</p>';
+      $$('#list .item-card').forEach(b => b.onclick = () => openItem(+b.dataset.id));
+    }
+
+    async function renderTiers() {
+      const el = $('#item-tiers');
+      if (!tierStats) {
+        el.innerHTML = '<div class="loading">Counting souls</div>';
+        const ts = Math.floor(Date.now() / 1000) - (+$('#period').value) * 86400;
+        try { tierStats = await getJSON('/v1/analytics/item-stats?min_unix_timestamp=' + ts); }
+        catch (e) { showError(el, e); return; }
+      }
+      const byId = Object.fromEntries(items.map(i => [i.id, i]));
+      const maxMatches = Math.max(...tierStats.map(s => s.matches));
+      const rows = tierStats
+        .filter(s => byId[s.item_id] && !byId[s.item_id].modeOnly && s.matches > maxMatches * 0.03 && (!tslot || byId[s.item_id].slot === tslot))
+        .map(s => ({ it: byId[s.item_id], wr: s.wins / s.matches * 100 }))
+        .sort((a, b) => b.wr - a.wr);
+      el.innerHTML = tierRowsHtml(rows, r => itemChipHtml(r.it, `<span class="wr">${fmtNum(r.wr, 1)}% win</span>`)) || '<p class="muted">No data for this filter.</p>';
+      $$('#item-tiers .item-chip').forEach(b => b.onclick = () => openItem(+b.dataset.id));
+    }
+
+    (async () => {
+      try { items = await loadItems(); } catch (e) { showError($('#list'), e); return; }
+      $$('[data-view]').forEach(b => b.onclick = () => {
+        $$('[data-view]').forEach(x => x.classList.toggle('on', x === b));
+        $('#view-shop').hidden = b.dataset.view !== 'shop';
+        $('#view-tiers').hidden = b.dataset.view !== 'tiers';
+        if (b.dataset.view === 'tiers') renderTiers();
+      });
+      $$('#slot-filters [data-slot]').forEach(b => b.onclick = () => {
+        slot = b.dataset.slot;
+        $$('#slot-filters [data-slot]').forEach(x => x.classList.toggle('on', x === b));
+        renderShop();
+      });
+      $$('[data-tslot]').forEach(b => b.onclick = () => {
+        tslot = b.dataset.tslot;
+        $$('[data-tslot]').forEach(x => x.classList.toggle('on', x === b));
+        renderTiers();
+      });
+      $('#period').onchange = () => { tierStats = null; renderTiers(); };
+      ['tier', 'kind'].forEach(id => $('#' + id).onchange = renderShop);
+      $('#q').oninput = renderShop;
+      renderShop();
+      const fromHash = () => $(location.hash === '#tiers' ? '[data-view=tiers]' : '[data-view=shop]').click();
+      window.addEventListener('hashchange', fromHash);
+      if (location.hash === '#tiers') fromHash();
+    })();
+  </script>
+</body>
+</html>
