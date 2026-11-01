@@ -3,7 +3,7 @@
 
 const API = 'https://api.deadlock-api.com';
 const CACHE_HOURS = 6;
-const CACHE_VERSION = 10; // bump when the shape of cached data changes
+const CACHE_VERSION = 11; // bump when the shape of cached data changes
 
 const PAGES = [
   ['index.html', 'Meta'],
@@ -120,6 +120,10 @@ async function getJSON(path) {
 }
 
 // ---------- Heroes ----------
+function heroNote(name, field) {
+  return (typeof HERO_NOTES !== 'undefined' && HERO_NOTES[name]?.[field]) || '';
+}
+
 async function loadHeroes() {
   const cached = cacheGet('heroes');
   if (cached) return cached;
@@ -136,9 +140,10 @@ async function loadHeroes() {
       gun: h.gun_tag || '',
       complexity: h.complexity || 0,
       // These texts contain stray HTML such as <br><br>; keep only line breaks and highlights.
+      // Where Valve's data has no role or playstyle, fall back to Soulbook's own notes (js/hero-notes.js).
       lore: cleanHtml(h.description?.lore || ''),
-      role: cleanHtml(h.description?.role || ''),
-      playstyle: cleanHtml(h.description?.playstyle || ''),
+      role: cleanHtml(h.description?.role || '') || esc(heroNote(h.name, 'role')),
+      playstyle: cleanHtml(h.description?.playstyle || '') || esc(heroNote(h.name, 'playstyle')),
       card: h.images?.icon_hero_card_webp || h.images?.icon_hero_card || '',
       small: h.images?.icon_image_small_webp || h.images?.icon_image_small || '',
       abilityKeys: ['signature1', 'signature2', 'signature3', 'signature4'].map(k => h.items?.[k]).filter(Boolean),
