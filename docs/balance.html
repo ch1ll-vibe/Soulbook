@@ -68,17 +68,20 @@
         const m = line.match(/^-\s*(.+?)\s*:\s*(.+)$/);
         if (!m) { if (section === 'general' && line.startsWith('-')) out.general.push(line.replace(/^-\s*/, '')); continue; }
         const [, name, text] = m;
-        if (section === 'heroes') {
+        // Minor updates have no "Heroes:" / "Items:" headings, so sort those lines by what the name matches.
+        let sec = section;
+        if (!sec) sec = matchHero(name) ? 'heroes' : matchItem(name) ? 'items' : 'general';
+        if (sec === 'heroes') {
           const h = matchHero(name);
           const key = h ? h.name : name;
           (out.heroes[key] = out.heroes[key] || { hero: h, changes: [] }).changes.push(text);
-        } else if (section === 'items') {
+        } else if (sec === 'items') {
           const it = matchItem(name);
           const key = it ? it.name : name;
           (out.items[key] = out.items[key] || { item: it, changes: [] }).changes.push(text);
-        } else if (section === 'street brawl') {
+        } else if (sec === 'street brawl') {
           out.brawl.push(`${name}: ${text}`);
-        } else if (section === 'general' || !section) {
+        } else if (sec === 'general') {
           out.general.push(`${name}: ${text}`);
         }
       }
@@ -154,8 +157,8 @@
       try {
         [heroes, items] = await Promise.all([loadHeroes(), loadItems()]);
         const all = await getJSON('/v2/patches');
-        // Only patches that actually contain balance sections.
-        patches = all.filter(p => /(^|\n)(Heroes|Items):\s*$/m.test(toLines(p.content).join('\n')));
+        // Only patches that actually change at least one hero or item.
+        patches = all.filter(p => { const r = parsePatch(p); return Object.keys(r.heroes).length + Object.keys(r.items).length > 0; });
       } catch (e) { showError($('#heroes'), e); return; }
       if (!patches.length) { $('#heroes').innerHTML = '<p class="muted">No balance patches found in the feed.</p>'; return; }
       const sel = $('#patch');

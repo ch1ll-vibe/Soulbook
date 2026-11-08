@@ -2,6 +2,38 @@
 // Each post: date (YYYY-MM-DD), title, tags (list), body (HTML allowed: <p>, <ul>, <li>, <a>, <b>, <em>).
 const NEWS = [
   {
+    date: '2026-11-08',
+    title: 'Week 2: Ranked Beta Season 2, a follow-up balance pass, and how the meta settled',
+    tags: ['Ranked', 'Patch', 'Meta'],
+    body: `
+      <p>Two Valve posts this week, both on 5 November, plus a full week of data on the big 30 October patch. The game is now on client build <b>6860</b>.</p>
+
+      <h4>Ranked Beta Season 2 has started</h4>
+      <ul>
+        <li>Season 1 is over. Everyone who played it gets a Hideout plaque of their highest rank. Season 2 runs until <b>11 March 2027</b>.</li>
+        <li><b>Soft reset:</b> about one badge down on average, with a 1–2 subrank nudge based on last season's win rate. There is also a global redistribution of the rank curve, so some players will actually go <em>up</em>. Returning Ranked players don't recalibrate; new ones do.</li>
+        <li><b>Shields:</b> Phantom, Ascendant and Eternus have no rank-loss protection any more. Everyone else drops from 5 to 3 shields at a full-rank boundary and from 2 to 1 between subranks.</li>
+        <li><b>Points:</b> 350 per match instead of 300, and reaching a new badge from the last subrank costs 1,500 instead of 2,000.</li>
+        <li><b>Four hero bans</b> per match instead of three. Placements can go as high as Ascendant I–III.</li>
+        <li><b>Hero unlocking</b> now uses points: 35 to unlock, 2 per win, 1 per loss. That's noticeably quicker than the old 15-win rule.</li>
+        <li>Leaderboards are per season and need 50 Ranked matches in the last 30 days (15 for a hero leaderboard).</li>
+      </ul>
+
+      <h4>Minor Update, 4 November</h4>
+      <p>A follow-up balance pass aimed at the heroes that came out of the Halloween patch too strong. Baba, Celeste and Deadman Danny were trimmed; Nurse Harrow, Rat King, Mo &amp; Krill and Apollo got small buffs back; Healbane stacks fall off harder. Every change with a verdict is on the <a href="balance.html?patch=2026-11-05">Balance</a> page.</p>
+
+      <h4>The meta, one week after the big patch</h4>
+      <ul>
+        <li><b>Graves</b> shrugged off his nerf: still the highest win rate at 57.2% and picked in 42.7% of matches. Expect him to be a ban priority now that Ranked has four bans.</li>
+        <li><b>Rat King</b> dropped from 56.0% to 54.3% win rate but is the most picked hero of the week (43.3%), which is why Valve already handed back a little bullet damage and ammo.</li>
+        <li><b>Nurse Harrow</b> fell from the top group to 49.9%: the 30 October nerfs landed hard, hence this week's partial buff. <b>Violet</b> sits at 46.7%.</li>
+        <li><b>Paige</b> (56.5%), <b>Kelvin</b> (55.5%) and <b>Seven</b> (55.5%) moved up into the top group, and <b>Baba</b> climbed to 55.1%, which explains her follow-up nerf.</li>
+        <li><b>Mirage</b> has the lowest win rate in the game at 43.7% after the Traveler rework, with Pocket, Mina and Sinclair just above him.</li>
+        <li>Most picked overall: Haze 45.2%, Drifter 44.6%, Venator 43.5%. Over 1.2 million matches were played this week.</li>
+      </ul>
+      <p>The live <a href="index.html">tier list</a> updates every time you open it, so these numbers will keep moving.</p>`,
+  },
+  {
     date: '2026-10-31',
     title: 'Patch 30 October: Halloween, a tougher Mid-Boss and easier comebacks',
     tags: ['Patch', 'Event'],

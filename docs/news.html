@@ -115,7 +115,7 @@
             </div>
             <p class="patch-excerpt">${esc(excerpt(p.content))}</p>
             <p><a class="btn small" href="${esc(p.link)}" target="_blank" rel="noopener">Read the rest on ${isForum ? 'the forums' : 'Steam'} &rarr;</a>
-              ${/Update/i.test(p.title) || /Heroes:|Items:/.test(p.content) ? `<a class="btn small" href="balance.html?patch=${new Date(p.pub_date).toISOString().slice(0, 10)}">Buffs and nerfs</a>` : ''}</p>
+              ${/Update/i.test(p.title) && !/Ranked/i.test(p.title) || /Heroes:|Items:/.test(p.content) ? `<a class="btn small" href="balance.html?patch=${new Date(p.pub_date).toISOString().slice(0, 10)}">Buffs and nerfs</a>` : ''}</p>
           </article>`; }).join('');
       } catch (e) { patchesLoaded = false; showError($('#patches'), e); }
     }

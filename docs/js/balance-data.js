@@ -2,6 +2,21 @@
 // The raw list of changes comes from Valve's notes automatically; this file adds the judgement.
 // verdict: 'buff' | 'nerf' | 'rework' | 'mixed' | 'fix'    note: one sentence on what it means.
 const BALANCE = {
+  '2026-11-05': {
+    summary: 'A small follow-up to the Halloween patch, one week on. The three heroes that came out of it strongest were trimmed (Baba, Celeste, Deadman Danny), while the heroes that were hit hardest got a little back (Nurse Harrow, Rat King), and Apollo and Mo & Krill were nudged up. Healbane stacking, introduced last patch, was toned down. Nothing here changes how a hero is played; it moves win rates by a point or two.',
+    heroes: {
+      'Apollo': { verdict: 'buff', note: 'Pommel Hit now also disarms and cancels an existing parry, so Riposte wins the exchange more reliably; his ultimate\'s T3 hits harder.' },
+      'Baba': { verdict: 'nerf', note: 'Less spirit resist scaling and melee damage, a slightly slower and weaker Brew, and less resistance on Granny Long Legs. She was climbing fast after the last patch.' },
+      'Celeste': { verdict: 'nerf', note: 'Shining Wonder slows less and comes back later, Radiant Daggers reaches less far, and the Dazzling Trick silence upgrade is shorter.' },
+      'Deadman Danny': { verdict: 'nerf', note: 'Close The Deal does less bonus damage to low targets and the jetpack heals less. Still a strong pick, less of a one-shot.' },
+      'Mo & Krill': { verdict: 'buff', note: 'More healing from Scorn, a bigger Burrow radius and more health per Combo kill. A few steps back after last patch\'s spirit cut.' },
+      'Nurse Harrow': { verdict: 'buff', note: 'Gun damage up 8% and Lurking Terrors builds fear faster and over a wider angle. Partly undoes the 30 October nerf.' },
+      'Rat King': { verdict: 'buff', note: 'A touch more bullet damage and ammo, and Rule, Ratannia! is faster and gets a cooldown cut at T1. Small, because he is still the most picked hero.' },
+    },
+    items: {
+      'Healbane': { verdict: 'nerf', note: 'Stacking from several sources now gives much less at two and four stacks, so piling anti-heal from a whole team pays off less.' },
+    },
+  },
   '2026-10-30': {
     summary: 'A patch aimed at the top of the tier list. Rat King, Graves, Nurse Harrow and Violet, the four most dominant heroes of the week, were all trimmed, while Solomon and Mirage got reworks. On the item side, lifesteal got cheaper across the board and Radiant Regeneration stops being an automatic pick, so expect more gun-sustain builds and fewer spirit heroes healing through fights.',
     heroes: {

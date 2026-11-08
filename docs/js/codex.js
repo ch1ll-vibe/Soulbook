@@ -352,7 +352,8 @@ function statLine(s) {
 }
 
 function itemCardHtml(it, extra = '') {
-  return `<button class="item-card slot-${it.slot}" data-id="${it.id}">
+  // A div rather than a <button>: button boxes don't grow reliably with wrapped text in every browser.
+  return `<div class="item-card slot-${it.slot}" data-id="${it.id}" role="button" tabindex="0">
     <div class="top">
       <img src="${esc(it.img)}" alt="">
       <div>
@@ -363,8 +364,13 @@ function itemCardHtml(it, extra = '') {
     </div>
     ${it.stats.length ? `<div class="bonus">${it.stats.slice(0, 3).map(statLine).join('<br>')}</div>` : ''}
     ${extra}
-  </button>`;
+  </div>`;
 }
+
+// Item cards are divs, so make Enter and Space act like a click for keyboard users.
+document.addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.classList?.contains('item-card')) { e.preventDefault(); e.target.click(); }
+});
 
 function itemChipHtml(it, extra = '') {
   return `<button class="item-chip slot-${it.slot}" data-id="${it.id}" title="${esc(it.name)}">
